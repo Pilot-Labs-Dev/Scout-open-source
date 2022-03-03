@@ -1,0 +1,3 @@
+{"id":"123","cmd":"sn","body":{}}
+{"id":"123","cmd":"record_status","body":{"type":"record"}}
+{"id":"123","cmd":"record_get_file_num","body":{"type":"record"}}

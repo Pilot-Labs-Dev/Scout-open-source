@@ -1,0 +1,13 @@
+[Unit]
+Description=motor server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/motor/motor_serve.py
+KillMode=process
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

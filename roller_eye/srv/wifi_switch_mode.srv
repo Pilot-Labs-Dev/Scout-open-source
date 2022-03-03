@@ -1,0 +1,5 @@
+int8 mode
+#0-don't 1-kill wifi_start_sta.sh 2-kill wifi_start_ap.sh
+int8 kill
+---
+int8 status

@@ -1,0 +1,15 @@
+int32 id
+string name
+string type
+int8 repeateType
+int8[] repeateDays
+int32 timeYear
+int8 timeMonth
+int8 timeDay
+int8 timeHour
+int8 timeMinute
+int8 timeSecond
+int32 expire
+string param
+bool notice
+bool active

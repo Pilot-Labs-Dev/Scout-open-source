@@ -1,0 +1,6 @@
+#setting in json
+string setting
+---
+#0:OK, others:failed
+int32 ret
+

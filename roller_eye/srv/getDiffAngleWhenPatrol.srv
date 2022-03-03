@@ -1,0 +1,4 @@
+#patrol name
+string name
+---
+float32 angle

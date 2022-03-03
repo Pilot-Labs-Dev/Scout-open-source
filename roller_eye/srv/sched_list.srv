@@ -1,0 +1,5 @@
+int32 startID
+int32 count
+string type
+---
+task[] result

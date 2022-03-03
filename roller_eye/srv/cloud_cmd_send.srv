@@ -1,0 +1,6 @@
+#sequence NO
+uint32 seq
+#command name
+string cmdName
+---
+int8 status

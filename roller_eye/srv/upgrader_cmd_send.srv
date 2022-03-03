@@ -1,0 +1,4 @@
+#command id, type is OtaUpgradeCmd
+int32 cmdId
+---
+int8 status

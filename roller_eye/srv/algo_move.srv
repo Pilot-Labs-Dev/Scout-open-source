@@ -1,0 +1,9 @@
+#unit is m
+float32 xDistance
+#unit is m
+float32 yDistance
+#unit is m/s
+float32 speed
+---
+#0:OK, others:failed
+int32 ret

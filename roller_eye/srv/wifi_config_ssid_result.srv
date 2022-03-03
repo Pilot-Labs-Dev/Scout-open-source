@@ -1,0 +1,2 @@
+#config ssid result 0-succ 1-failure
+int8 result

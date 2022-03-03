@@ -1,0 +1,62 @@
+#!/bin/bash
+ldconfig
+echo "copy default settings"
+CONFIG_ROOT_DIR=/var/roller_eye/config
+MONITOR_CONFIG_PATH=$CONFIG_ROOT_DIR/monitor
+VIDEO_CONFIG_PATH=$CONFIG_ROOT_DIR/video.yaml
+
+function copy_if_not_exist()
+{
+    if [ ! -f $1 ];then
+        cp $CONFIG_ROOT_DIR/$2 $1
+        if [ "$?" != "0" ];then
+            echo "copy $1 fail"
+            exit 1
+        else
+            echo "copy $1"
+        fi
+    fi
+}
+copy_if_not_exist $MONITOR_CONFIG_PATH monitor_default.json
+copy_if_not_exist $VIDEO_CONFIG_PATH video_default.yaml
+
+echo "install sock proxy service...."
+INSTALL_DIR=/opt/sockproxy
+SERVICE_NAME=sockproxy.service
+OS_ID=$(cat /etc/os-release |grep ^ID=|awk -F '=' '{print $2}')
+echo "OS ID is "$OS_ID
+
+case "$OS_ID" in 
+	debian) SERVICE_PATH=/lib/systemd/system;;
+	ubuntu) SERVICE_PATH=/lib/systemd/system;;
+	*) echo "unsupport OS"
+	exit 1;;
+esac
+
+cp $INSTALL_DIR/$SERVICE_NAME $SERVICE_PATH
+systemctl enable $SERVICE_NAME
+echo "restart sock proxy service"
+systemctl restart $SERVICE_NAME
+
+echo "setup roller eye service...."
+
+ROS_VER=
+ROS_VER_NUM=`ls /opt/ros|wc -w`
+
+if [ "$ROS_VER_NUM" == "0" ];then
+    echo "None ROS SDK found " 
+    exit 1
+fi
+if [ "$ROS_VER_NUM" != "1" ];then
+    ROS_VER=`ls /opt/ros`
+    echo "Found multiple ROS SDK:$ROS_VER "
+    exit  1
+else
+    ROS_VER=`ls /opt/ros`   
+fi
+echo "ROS SDK Version:$ROS_VER"
+source /opt/ros/$ROS_VER/setup.bash
+ROLLER_EYE_SERVICE=roller_eye
+rosrun robot_upstart install roller_eye/launch/start.launch --job $ROLLER_EYE_SERVICE --user root
+echo "reload and restart roller_eye service"
+systemctl daemon-reload && systemctl restart $ROLLER_EYE_SERVICE 

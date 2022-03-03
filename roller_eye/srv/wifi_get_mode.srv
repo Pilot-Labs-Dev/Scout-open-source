@@ -1,0 +1,3 @@
+#get wifi mode
+---
+int8 mode

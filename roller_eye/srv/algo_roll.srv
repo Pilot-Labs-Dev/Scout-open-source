@@ -1,0 +1,10 @@
+#angle unit is rad
+float32 angle
+#unit is rad/s
+float32 rotatedSpeed
+#unit is second
+int32 timeout
+float32 error
+---
+#0:OK, others:failed
+int32 ret

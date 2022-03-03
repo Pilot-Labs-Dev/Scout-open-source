@@ -1,0 +1,7 @@
+# snapshot or record
+int8 type
+string id
+int32 start
+int32 size
+---
+record[] files

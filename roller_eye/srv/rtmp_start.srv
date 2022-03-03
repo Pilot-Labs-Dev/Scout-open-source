@@ -1,0 +1,14 @@
+#value is "live" or "monitor",when set "monitor" the server will record the data
+string app
+#stream name
+string name
+#need to be cached in local
+bool cache
+#need to open the camera,if false the video data will load from local cache
+bool live
+#the duration of the stream
+int32 duration
+#av flag
+uint32 flags
+---
+int8 result

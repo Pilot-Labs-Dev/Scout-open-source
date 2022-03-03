@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# iBeacon Scanner
+
+# Process:
+# 1. start hcitool lescan
+# 2. begin reading from hcidump
+# 3. packets span multiple lines from dump, so assemble packets from multiline stdin
+# 4. for each packet, process into uuid, major, minor, power, and RSSI
+# 5. when finished (SIGINT): make sure to close out hcitool
+
+halt_hcitool_lescan() {
+  sudo pkill --signal SIGINT hcitool
+}
+
+trap halt_hcitool_lescan INT
+
+process_complete_packet() {
+  # an example packet with output:
+  # >04 3E 2A 02 01 03 00 CA 66 69 70 F3 5C 1E 02 01 1A 1A FF 4C 00 02 15 2F 23 44 54 CF 6D 4A 0F AD F2 F4 91 1B A9 FF A6 00 01 00 01 C5 B2
+  # => 2F234454-CF6D-4A0F-ADF2-F4911BA9FFA6    1       1       -59     -78
+
+  local packet=${1//[\ |>]/}
+
+  # only work with iBeacon packets
+  if [[ ! $packet =~ ^043E2A0201.{18}0201.{10}0215 ]]; then
+    uuidmatch=$false
+    return
+
+  fi
+
+  uuid="${packet:46:8}-${packet:54:4}-${packet:58:4}-${packet:62:4}-${packet:66:12}"
+  major=$((0x${packet:78:4}))
+  minor=$((0x${packet:82:4}))
+  power=$[$((0x${packet:86:2})) * (-1)] #- 256]
+  rssi=$[$((0x${packet:88:2})) - 256]
+  rssi0=$rssi1
+  rssi1=$rssi2
+  rssi2=$rssi3
+  rssi3=$rssi4
+  rssi4=$rssi
+  rssiavg=$((($rssi0+$rssi1+$rssi2+$rssi3+$rssi4)/5))
+
+  n=4.0   #8
+  dist=$(echo "$rssi $power $n"| awk '{ print (10^((($2)-($1))/(10*$3))); }'|bc)
+  distavg=$(echo "$rssiavg $power $n"| awk '{ print (10^((($2)-($1))/(10*$3))); }'|bc)
+
+#  targetuuid="FDA50693-A4E2-4FB1-AFCF-C6EB07647825"
+#  targetmajor="10"
+#  targetminor="7"
+  
+#  if [ "$uuid" == "$targetuuid" ] && [ "$major" == "$targetmajor" ] && [ "$minor" == "$targetminor" ] ; then
+  echo -e "UUID:$uuid MAJOR:$major Minor:$minor\tPower:$power RSSI:$rssi" # $rssiavg $dist $distavg"  
+
+  uuidmatch=true # 1
+#  fi
+
+#  if [ "$(($end_time-$start_time))" -gt 1 ]; then
+#    echo -e "$(date +%s) 0 0 0 -1 -1 ScanTimeout"
+#    uuidmatch=true
+#  fi
+
+}
+
+uuidmatch=false
+
+read_blescan_packet_dump() {
+  # packets span multiple lines and need to be built up
+  packet=""
+  uuidmatch=false
+
+  while read line; do # && [ "$uuidmatch" != "true" ]; do
+    # packets start with ">"
+    if [[ $line =~ ^\> ]]; then
+      # process the completed packet (unless this is the first time through)
+      if [ "$packet" ]; then
+        end_time="$(date -u +%s)"
+	process_complete_packet "$packet"	 
+      fi
+      # start the new packet
+      packet=$line
+    else
+      # continue building the packet
+      packet="$packet $line"
+    fi
+
+  done
+  halt_hcitool_lescan
+  sudo hciconfig hci0 down
+  sudo killall hcidump;
+  # sudo killall hcitool;
+}
+
+# begin BLE scanning
+# sudo hciconfig hci0 reset
+sudo hciconfig hci0 reset && sudo hciconfig hci0 up
+sudo hcitool lescan --duplicates > /dev/null &
+
+sleep 1
+targetuuid=$1
+targetmajor=$2
+targetminor=$3
+
+# make sure the scan started
+if [ "$(pidof hcitool)" ]; then
+  start_time="$(date -u +%s)"
+  # start the scan packet dump and process the stream
+  sudo hcidump --raw | read_blescan_packet_dump  # p
+else
+  # echo "ERROR: it looks like hcitool lescan isn't starting up correctly" >&2
+  echo -e "$(date +%s) 0 0 0 -2 -2 ScanError"
+  exit 1
+fi

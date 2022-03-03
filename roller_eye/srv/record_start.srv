@@ -1,0 +1,9 @@
+# snapshot or record
+int8 type
+int8 mode
+uint32 duration
+int32 count
+---
+int8 status
+#the id is used to indicate the record file
+string id

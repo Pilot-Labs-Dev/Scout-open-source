@@ -1,0 +1,5 @@
+int8 mode
+string ssid
+string key
+---
+int8 status

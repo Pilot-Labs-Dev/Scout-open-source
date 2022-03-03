@@ -1,0 +1,21 @@
+<launch>
+  <!-- group ns="roller_eye" -->
+    <arg name="roller_eye_config_base" value="/var/roller_eye/config"/>
+    <rosparam command="load" file="$(arg roller_eye_config_base)/video.yaml" ns="ParamNode/video"/>    
+    <node pkg="roller_eye"  name="UpdateTool" type="update_tool" respawn="false" respawn_delay="5"/> 
+    <node pkg="roller_eye"  name="SupervisorNode" type="supervisor_node" respawn="true" respawn_delay="5"/> 
+    <node pkg="roller_eye"  name="SchedNode" type="sched_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="DetectRecordNode" type="detect_record_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="CoreNode" type="media_core_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="WiFiNode" type="wifi_node" respawn="true" respawn_delay="20"/> 
+    <node pkg="roller_eye"  name="RecorderAgentNode" type="recorder_agent_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="RTMPNode" type="rtmp_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="MotorNode" type="motor_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="SensorNode" type="sensors_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="UINode" type="ui_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="NavPathNode" type="nav_path_node" respawn="true" respawn_delay="1"/>
+    <node pkg="roller_eye"  name="UtilNode" type="util_node" respawn="true" respawn_delay="5"/>
+    <node pkg="roller_eye"  name="SpeakerNode" type="speaker_node" respawn="true" respawn_delay="1"/>
+    <node pkg="roller_eye"  name="BistNode" type="bistNode" respawn="true" respawn_delay="5"/>
+    <!-- /group -->
+</launch>

@@ -1,0 +1,8 @@
+---
+int32 step
+int32 dwnMode
+int32 instMode
+bool isNeededReboot
+int32 progress
+string ver
+string msg

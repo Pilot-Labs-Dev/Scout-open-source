@@ -1,0 +1,11 @@
+#unit is m/s
+float32 xSpeed
+#unit is m/s
+float32 ySpeed
+#unit is rad/s
+float32 rotatedSpeed
+#unit is second
+int32 time
+---
+#0:OK, others:failed
+int32 ret

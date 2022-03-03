@@ -1,0 +1,2 @@
+point[] points
+bool inside

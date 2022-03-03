@@ -1,0 +1,5 @@
+#0: by clamp, 1:whole machine
+int32 cmd
+---
+#0:OK, others:failed
+int32 ret

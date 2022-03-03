@@ -1,0 +1,5 @@
+# Turn off VIO if off is 1
+uint8 off
+---
+# Return 0 if VIO is off
+uint8 ret

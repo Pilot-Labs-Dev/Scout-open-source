@@ -1,0 +1,5 @@
+#exposure time
+float32 time
+---
+#0:OK, others:failed
+int32 ret

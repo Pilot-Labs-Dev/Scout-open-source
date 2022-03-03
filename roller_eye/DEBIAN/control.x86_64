@@ -1,0 +1,11 @@
+Package:roller-eye
+Version:1.0
+Section:
+Priority:extra
+Depends:
+Suggests:
+Architecture:amd64
+Installed-Size:4096
+Maintainer:pilot-labs
+Provides:pilot-labs
+Description:roller_eye project

@@ -1,0 +1,4 @@
+#0-no, 1-yes
+int8     isFromOutStart
+string name
+---

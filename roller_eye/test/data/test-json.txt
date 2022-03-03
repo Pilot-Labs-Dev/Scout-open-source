@@ -1,0 +1,47 @@
+{"sn":"SN2908180001","id":"123","type":"cmd","cmd":"auth","body":{"src":"abcd"}}
+{"sn":"SN2908180002","id":"1","type":"answer","cmd":"login","body":{"bindTokens":["tokens1","tokens2"]}}
+{"sn":"SN2908180002","id":"9","type":"answer","cmd":"saveFile","body":{"status":0}}
+{"sn":"SN2908180001","id":"123","type":"cmd","cmd":"pushBindToken","body":{"bindTokens":["123","456"]}}
+
+
+{"id":"123","cmd":"sn","body":{}}
+{"id":"123","cmd":"status","body":{}}
+{"id":"123","cmd":"p2p","body":{}}
+{"id":"123","cmd":"wifi","body":{"sid":"s123","passwd":"pass"}}
+{"id":"123","cmd":"bind","body":{}}
+{"id":"1004","cmd":"download_begin","body":{"session":0,"id":"ABCDEFG","block":4096}}
+{"id":"1004","cmd":"download_end","body":{"session":0}}
+{"id":"1004","cmd":"download_retry","body":{"session":0,"start":0}}
+{"id":"123","cmd":"record_start","body":{"type":"record","mode":1,"duration":10,"count":3}}
+{"id":"123","cmd":"record_stop","body":{"type":"record"}}
+{"id":"123","cmd":"record_get_file_num","body":{"type":"record"}}
+{"id":"123","cmd":"record_get_file_list","body":{"type":"record","start":1,"count":12}}
+{"id":"123","cmd":"record_get_file_list","body":{"type":"record","id":"LR2D6C3In32lVXwR","start":1,"count":-19999}}
+{"id":"123","cmd":"record_get_file_list","body":{"type":"all","id":"LR2D6C3In32lVXwR","start":1,"count":0}}
+{"id":"123","cmd":"record_delete_file","body":{"id":["ZX5MN4AeFL3fKU8U", "CV0Fg8nT3Jp581k1"]}}
+{"id":"123","cmd":"record_status","body":{"type":"record"}}
+{"id":"123","cmd":"set_resolution","body":{"width":640, "height":480}}
+{"id":"123","cmd":"get_resolution","body":{}}
+{"id":"123","cmd":"wifi_mod","body":{"ssid":null,"passwd":"12345678"}}
+{"id":"123","cmd":"send_scrath_script","body":{"language":"python","encode":"text","id":"12345678","name":"test1.py","segment": 0,"content":"hello","last":1}}
+{"id":"123","cmd":"send_scrath_script","body":{"language":"python","encode":"base64","id":"87654321","name":"test2.py","segment": 0,"content":"aGVsbG8K","last":0}}
+{"id":"123","cmd":"send_scrath_script","body":{"language":"python","encode":"base64","id":"87654321","name":"test2.py","segment": 1,"content":"d29ybGQK","last":1}}
+{"id":"123","cmd":"nav_query_pose","body":{}}
+{"id":"123","cmd":"nav_start","body":{}}
+{"id":"123","cmd":"nav_save","body":{"name":"line0"}}
+{"id":"123","cmd":"nav_patrol","body":{"path":"line0"}}
+{"id":"123","cmd":"nav_list","body":{}}
+{"id":"123","cmd":"nav_delete","body":{"name":["test0","abc","line0"]}}
+{"id":"123","cmd":"nav_back","body":{}}
+{"id":"123","cmd":"timer_task_add","body":{"id":0,"name":"test","type":"patrol","repeatType":1,"repeatDays":[],"startTime":"2020-10-17 15:47:00","expire":0,"active":1,"param":{"notice":1,"record":1,"route":"line0"}}}
+{"id":"123","cmd":"timer_task_edit","body":{"id":7013490,"name":"test","type":"patrol","repeatType":1,"repeatDays":[],"startTime":"2020-10-15 09:16:00","expire":0,"active":1,"param":{"notice":1,"record":1,"route":"line1"}}}
+{"id":"123","cmd":"timer_task_delete","body":{"ids":[4025280]}}
+{"id":"123","cmd":"timer_task_list","body":{"startId":0,"count":20,"type":"patrol"}}
+{"id":"123","cmd":"get_wifi_list","body":{}}
+{"id":"123","cmd":"set_param","body":{"monitor":{"motion":false,"person":false,"cat":false,"dog":false,"zone":{"active":true,"motion":true,"areas":[{"contour":[{"x":0.33,"y":0.33},{"x":0.67,"y":0.33},{"x":0.67,"y":0.67},{"x":0.33,"y":0.67}],"inside":true}]}}}}
+{"id":"123","cmd":"get_param","body":{"groups":["monitor"]}}
+{"id":"123","cmd":"set_param","body":{"video":{"antiFlicker":50,"height":720,"nightVision":1,"width":1280}}}
+{"id":"3006","cmd":"queryOtaVer","body":{}}
+{"id":"3007","cmd":"startOtaDownload","body":{}}
+{"id":"3008","cmd":"startOtaInstall","body":{}}
+{"id":"3011","cmd":"getOtaStatus","body":{}}

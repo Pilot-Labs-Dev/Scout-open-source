@@ -1,0 +1,5 @@
+---
+#0-no, 1-yes
+int8 isNight
+#the IR led brightness
+int32 brightness

@@ -1,0 +1,4 @@
+# snapshot or record
+int8 type
+---
+int8 status

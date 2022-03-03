@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+/bin/S21mountall.sh
+rk_wifi_init /dev/ttyS0
+
+# Generate the SSH keys if non-existent
+ssh-keygen -A
+
+#start pulse audio
+amixer sset 'Playback Path' 'SPK'
+amixer sset 'Capture MIC Path' 'Main Mic'
+pulseaudio --system --disallow-exit --daemonize
+
+nohup /usr/local/bin/start.sh &
+
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorbl.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorbl_old.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorbr.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorbr_old.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorfl.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorfr.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorfr_old.ko
+/sbin/insmod /usr/lib/aarch64-linux-gnu/motorfl_old.ko
+
+exit 0
