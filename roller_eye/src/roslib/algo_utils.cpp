@@ -354,12 +354,6 @@ namespace roller_eye
         }
         time=0;
 
-        pthread_attr_t attr;   
-        pthread_attr_init (&attr);
-        int policy = api_get_thread_policy (&attr);
-        api_set_thread_policy(&attr, SCHED_FIFO);
-        api_set_thread_priority(&attr, 70);
-
         int tries = 0;
         int maxTries = timeout/ROLL_DURATION;
      
@@ -407,8 +401,8 @@ namespace roller_eye
             mTof.shutdown();
        }
        resetQuitFlag();
-        api_set_thread_policy (&attr, policy);
-        pthread_attr_destroy (&attr);
+        // api_set_thread_policy (&attr, policy);
+        // pthread_attr_destroy (&attr);
         return ret;
     }
 
@@ -447,11 +441,6 @@ namespace roller_eye
         mZCalibra=0.0;
         mIMU=mHandle.subscribe("SensorNode/imu",1000,&AlgoUtils::onIMUData,this);
 
-        pthread_attr_t attr;   
-        pthread_attr_init (&attr);
-        int policy = api_get_thread_policy (&attr);
-        api_set_thread_policy(&attr, SCHED_FIFO);
-        api_set_thread_priority(&attr, 70);
 
         time=0;
 		static int genDistIndex = 0;
@@ -502,8 +491,6 @@ namespace roller_eye
             mTof.shutdown();
        }
        resetQuitFlag();
-        api_set_thread_policy (&attr, policy);  
-        pthread_attr_destroy (&attr);
         return ret;
     }  
     
@@ -532,18 +519,12 @@ namespace roller_eye
         }
         time=0;
 
-        pthread_attr_t attr;   
-        pthread_attr_init (&attr);
-        int policy = api_get_thread_policy (&attr);
-        api_set_thread_policy(&attr, SCHED_FIFO);
-        api_set_thread_priority(&attr, 70);
 
         int tries = 0;
         int maxTries = timeout/ROLL_DURATION;
         while(1){
             ros::spinOnce();
-            if(mQuitFlag || 
-                 //(maxTries>0 && tries>=maxTries)){                
+            if(mQuitFlag ||      
                 (timeout>=0 && time>timeout)){
                 ret=-1;
                 break;
@@ -586,8 +567,6 @@ namespace roller_eye
             mTof.shutdown();
        }
        resetQuitFlag();
-        api_set_thread_policy (&attr, policy);  
-        pthread_attr_destroy (&attr);
         return ret;
     }
 
@@ -821,15 +800,6 @@ namespace roller_eye
     }
     void AlgoUtils::onIMUData(const sensor_msgs::ImuConstPtr& imu)
     {
-        static bool bFirst = true;
-        if (bFirst){
-            bFirst = false;
-            pthread_attr_t attr;   
-            pthread_attr_init (&attr);
-            int policy = api_get_thread_policy (&attr);
-            api_set_thread_policy(&attr, SCHED_FIFO);
-            api_set_thread_priority(&attr, 70);
-        }
         if(mIMUCalibraCnt<ROLL_IMU_CALIBRA_CNT){
             mZCalibra+=imu->angular_velocity.z;
             if(++mIMUCalibraCnt==ROLL_IMU_CALIBRA_CNT){

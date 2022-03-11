@@ -140,8 +140,12 @@ add_service_files(
    detect_record_get_status.srv
    nav_waypoint_add.srv
    nav_waypoint_query.srv
+   vio_start.srv
+   vio_stop.srv
+   getOdom.srv
    imu_calib.srv
    adjust_exposure_time.srv
+   enable_vio.srv
    imu_patrol_calib.srv
    getimu_patrolcalib_status.srv
    getDiffAngleWhenPatrol.srv
@@ -674,6 +678,16 @@ launch
 DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )   
 
+install(DIRECTORY
+param
+DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)   
+
+install(DIRECTORY
+kernel
+DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/var/roller_eye
+)   
+
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(PROGRAMS
    scripts/check_rec_disk.sh
@@ -706,7 +720,7 @@ install(FILES
    lib/rollereye_ros_bridge.py
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/usr/local/lib/
 )
-endif(APP_ARCH_IS_X86)
+endif()
 
 install(FILES
    #conf/var/roller_eye/config/ibeacon_info   
@@ -714,6 +728,7 @@ install(FILES
    conf/var/roller_eye/config/motor_tune
    conf/var/roller_eye/config/device_default_config
    conf/var/roller_eye/config/monitor_default.json
+   conf/var/roller_eye/config/motion_default.json
    conf/var/roller_eye/config/video_default.yaml
    conf/var/roller_eye/config/soundEffect
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/var/roller_eye/config/
@@ -732,9 +747,10 @@ install(PROGRAMS
    conf/var/roller_eye/config/rc.local
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/etc/
 )
+
 install(PROGRAMS
    thirdpart/update_tool
-   DESTINATION ${CMAKE_INSTALL_PREFIX}/opt/ros/melodic/lib/roller_eye/
+   DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/usr/sbin/
 )
 
 install(DIRECTORY

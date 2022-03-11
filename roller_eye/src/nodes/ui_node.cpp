@@ -499,6 +499,7 @@ private:
 int main(int argc, char **argv)
 {
   InitDZLog dzLog;
+  system("update_tool");
   ros::init(argc, argv, "UINode");
   ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,UI_NODE_DEBUG_LEVEL);
   ros::NodeHandle n("");

@@ -2,6 +2,7 @@
 ldconfig
 echo "copy default settings"
 CONFIG_ROOT_DIR=/var/roller_eye/config
+MOTION_CONFIG_PATH=$CONFIG_ROOT_DIR/motion
 MONITOR_CONFIG_PATH=$CONFIG_ROOT_DIR/monitor
 VIDEO_CONFIG_PATH=$CONFIG_ROOT_DIR/video.yaml
 
@@ -17,12 +18,11 @@ function copy_if_not_exist()
         fi
     fi
 }
+copy_if_not_exist $MOTION_CONFIG_PATH motion_default.json
 copy_if_not_exist $MONITOR_CONFIG_PATH monitor_default.json
 copy_if_not_exist $VIDEO_CONFIG_PATH video_default.yaml
 
-echo "install sock proxy service...."
-INSTALL_DIR=/opt/sockproxy
-SERVICE_NAME=sockproxy.service
+
 OS_ID=$(cat /etc/os-release |grep ^ID=|awk -F '=' '{print $2}')
 echo "OS ID is "$OS_ID
 
@@ -33,10 +33,6 @@ case "$OS_ID" in
 	exit 1;;
 esac
 
-cp $INSTALL_DIR/$SERVICE_NAME $SERVICE_PATH
-systemctl enable $SERVICE_NAME
-echo "restart sock proxy service"
-systemctl restart $SERVICE_NAME
 
 echo "setup roller eye service...."
 

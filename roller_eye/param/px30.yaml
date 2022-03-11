@@ -1,0 +1,15 @@
+vio:
+    cam_model: ATAN
+    cam_width: 640
+    cam_height: 480
+    cam_fx: 0.490202
+    cam_fy: 0.866527
+    cam_cx: 0.485102
+    cam_cy: 0.508577
+    cam_d0: 1.03345
+
+    #cam_fx: 0.463632
+    #cam_fy: 0.823661
+    #cam_cx: 0.497465
+    #cam_cy: 0.498443
+    #cam_d0: 1.01687

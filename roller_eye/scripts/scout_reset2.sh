@@ -20,6 +20,7 @@ rm $SCOUT_DEFAULT_CONFIG_DIR"userID"
 rm $SCOUT_DEFAULT_CONFIG_DIR"lastPatrolName"
 
 #echo "a" > $SCOUT_DEFAULT_CONFIG_DIR"userID"
+cp $SCOUT_DEFAULT_CONFIG_DIR"motion_default.json" $SCOUT_DEFAULT_CONFIG_DIR"motion"
 cp $SCOUT_DEFAULT_CONFIG_DIR"monitor_default.json" $SCOUT_DEFAULT_CONFIG_DIR"monitor"
 cp $SCOUT_DEFAULT_CONFIG_DIR"video_default.yaml" $SCOUT_DEFAULT_CONFIG_DIR"video.yaml"
 

@@ -25,6 +25,11 @@
 
 #include "roller_eye/param_utils.h"
 
+#include "roller_eye/vio_start.h"
+#include "roller_eye/vio_stop.h"
+#include "roller_eye/getOdom.h"
+
+#include "roller_eye/enable_vio.h"
 #include "zlog.h"
 #include "roller_eye/imu_patrol_calib.h"
 #include "roller_eye/getimu_patrolcalib_status.h"
@@ -363,6 +368,73 @@ private:
     float UPDATE_SIGMA;
     ros::NodeHandle mLocal;
     ros::NodeHandle mGlobal;
+};
+
+class VioPosePublisher{
+public:
+    VioPosePublisher():
+    mGlobal(""),
+    mBVioStart(false)
+    {
+        mStart = mGlobal.serviceClient<vio_start>("/vio/start");
+        mStop = mGlobal.serviceClient<vio_stop>("/vio/stop");
+        mGetOdom = mGlobal.serviceClient<getOdom>("/vio/getOdom");
+    }
+    ~VioPosePublisher()
+    {
+    }
+
+    void start()
+    {                
+        vio_start start;
+        start.request.on = 1;
+        if (mStart.call(start)){
+            mBVioStart = true;
+        }else{
+            ROS_ERROR("vio start error!\n");
+        }
+    }
+
+    void stop()
+    {    
+        vio_stop stop;
+        stop.request.off=1;
+        if (!mStop.call(stop)){
+            ROS_ERROR("vio stop error!\n");
+        }
+        mBVioStart = false;
+    }
+    int setData(nav_msgs::Odometry& odom)
+    {    
+        odom.header.stamp=ros::Time::now();
+        odom.header.frame_id="world";
+        odom.child_frame_id="base_link";
+        if (mBVioStart){
+            getOdom vio_odom;
+            vio_odom.request.get=1;
+            if (!mGetOdom.call(vio_odom)){
+                ROS_ERROR("get vio_odom error!\n");
+                return -1;
+            }else{            
+                ROS_ERROR("get vio_odom ok!\n");
+                odom.header.seq=vio_odom.response.header.seq;
+                odom.pose.pose.position.x=vio_odom.response.x;
+                odom.pose.pose.position.y=vio_odom.response.y;
+                odom.pose.pose.position.z=0.0;
+
+                ROS_DEBUG("vio get odom: x:%f, y:%f, yaw=%f",odom.pose.pose.position.x, odom.pose.pose.position.y, vio_odom.response.yaw);
+                odom.pose.pose.orientation=tf::createQuaternionMsgFromYaw(vio_odom.response.yaw); 
+            }
+        }
+        return 0;
+    }
+
+private:
+    bool mBVioStart;
+    ros::NodeHandle mGlobal;
+    ros::ServiceClient mStart;
+    ros::ServiceClient mStop;
+    ros::ServiceClient mGetOdom;
 };
 
 class MotorDriver{
@@ -1090,6 +1162,7 @@ int main(int argc, char **argv)
   DataPulisher<std_msgs::String,DisableMotorDynamicAdjust> disableMotorAdjust(g,"disable_adjust",2,make_shared<DisableMotorDynamicAdjust>(),1.0);
   DataPulisher<std_msgs::String,FixMotorMoveDirection> enalbeMotorFixDir(g,"enable_fix_dir",2,make_shared<FixMotorMoveDirection>(),1.0);
   DataPulisher<nav_msgs::Odometry,MotorPosePublisher> motorPosePub(g,"baselink_odom_relative",100,g_motor_driver->getPosePublisher(),10.0);
+  DataPulisher<nav_msgs::Odometry,VioPosePublisher> vioPosePub(g,"vio_odom_relative",100,make_shared<VioPosePublisher>(),10.0);
   ros::spin();
   return 0;
 }

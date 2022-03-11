@@ -68,6 +68,8 @@ mkdir -p $DEB_DIR$ROS_DIR
 mv install/include $DEB_DIR$ROS_DIR
 mv install/lib $DEB_DIR$ROS_DIR
 mv install/share $DEB_DIR$ROS_DIR
+chmod 755 src/roller_eye/vio/vio
+cp  src/roller_eye/vio/vio $DEB_DIR$ROS_DIR/lib/roller_eye
 echo -e "\033[32mBuilding deb...\033[0m"
 dpkg-deb -b $DEB_DIR $OUT
 rm -rf install

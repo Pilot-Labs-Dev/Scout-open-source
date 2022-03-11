@@ -41,6 +41,7 @@
 #include "roller_eye/nav_waypoint_query.h"
 #include "zlog.h"
 #include "roller_eye/param_utils.h"
+#include "roller_eye/enable_vio.h"
 #include "roller_eye/imu_patrol_calib.h"
 #include "roller_eye/getimu_patrolcalib_status.h"
 #include "roller_eye/getDiffAngleWhenPatrol.h"
@@ -125,6 +126,9 @@ public:
     	//rmwei end
         mMinBat = LOW_BATTERY_PER;
         PltConfig::getInstance()->getMinBatForPowerOff(mMinBat);
+        VioParam param;
+        load_vio_param(param);
+        mBUseVio = param.enable;
         mk_depth_dir(NAVIGATE_PATH_PATH);
         mImuPatrolCalibClient = mLocal.serviceClient<imu_patrol_calib>("/imu_patrol_calib");
         mImuPatrolCalibStatusClient = mLocal.serviceClient<getimu_patrolcalib_status>("/getimu_patrolcalib_status");
@@ -144,7 +148,8 @@ public:
         mGetStatus=mLocal.advertiseService("nav_get_status",&NavigatePath::getStatus,this);
         mAddWayPt=mLocal.advertiseService("nav_waypoint_add",&NavigatePath::addWayPt,this);
         mQueryWayPt=mLocal.advertiseService("nav_waypoint_query",&NavigatePath::queryPt,this);
-		mGetCalibStatusSrv=mLocal.advertiseService("/nav_calibration_get_status",&NavigatePath::getCalibrationStatus,this);    
+        mEnableVioSrv=mLocal.advertiseService("enable_vio",&NavigatePath::enableVio,this);
+		mGetCalibStatusSrv=mLocal.advertiseService("nav_calibration_get_status",&NavigatePath::getCalibrationStatus,this);  
         mPose=mLocal.advertise<geometry_msgs::PoseStamped>("pose",100);
         mCmdVel=mGlobal.advertise<geometry_msgs::Twist>("cmd_vel",100);
         mNavTraceDonePub = mGlobal.advertise<std_msgs::Int32>("/nav_trace_done",1);
@@ -196,14 +201,20 @@ private:
             mSync->registerCallback(std::bind(&NavigatePath::imuMagCallback, this, std::placeholders::_1, std::placeholders::_2));
         }
 #endif
-
-
-		if(!mOdomRelative){
-			mSumW = 0.0;
-			mTraceCounter = 0;
-			mOdomRelative=mGlobal.subscribe("MotorNode/baselink_odom_relative", 100, &NavigatePath::odomRelativeCB,this);
-		}
-	
+        
+        if (mBUseVio){
+            if(!mOdomRelative){
+				mSumW = 0.0;
+				mTraceCounter = 0;
+                mOdomRelative=mGlobal.subscribe("MotorNode/vio_odom_relative", 100, &NavigatePath::odomRelativeCB,this);
+            }
+        }else{
+            if(!mOdomRelative){
+				mSumW = 0.0;
+				mTraceCounter = 0;
+                mOdomRelative=mGlobal.subscribe("MotorNode/baselink_odom_relative", 100, &NavigatePath::odomRelativeCB,this);
+            }
+        }
 
 #ifdef ENALBE_AVOID_OBSTACLE
         if(!mTof){
@@ -409,6 +420,15 @@ private:
     {
         return true;
     }
+
+    bool enableVio(enable_vio::Request& request, 
+                                  enable_vio::Response& response)
+    {
+        mBUseVio = request.enable;
+        ROS_INFO("call enableVio %d!\n", mBUseVio);
+        return true;
+    }
+
 
     bool save_path(nav_path_saveRequest& req,nav_path_saveResponse& res)
     {    
@@ -723,19 +743,24 @@ private:
         float vy=msg->twist.twist.linear.y;
         float w=msg->twist.twist.angular.z;
         
-
-		#ifndef USE_MADGWICK_IMU_FILTER
-		mCurPose=mCurPose*Eigen::Quaterniond(msg->pose.pose.orientation.w,msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z);
-		mCurPostion+=mCurPose*t;
-		#else
-		if(!mOrentianInited){
-			return;
-		}
-		mCurPostion+=mCurPose*t;
-		mCurPostion.z()=0.0;
-		mIMUFilter->getOrientation(mCurPose.w(),mCurPose.x(),mCurPose.y(),mCurPose.z());
-		#endif
-
+        if (mBUseVio){
+            Eigen::Quaterniond cp(msg->pose.pose.orientation.w,msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z);
+            mCurPostion = t;
+            mCurPose       = cp;
+        }else{
+            #ifndef USE_MADGWICK_IMU_FILTER
+            //mCurPostion+=mCurPose*t;
+            mCurPose=mCurPose*Eigen::Quaterniond(msg->pose.pose.orientation.w,msg->pose.pose.orientation.x,msg->pose.pose.orientation.y,msg->pose.pose.orientation.z);
+            mCurPostion+=mCurPose*t;
+            #else
+            if(!mOrentianInited){
+                return;
+            }
+            mCurPostion+=mCurPose*t;
+            mCurPostion.z()=0.0;
+            mIMUFilter->getOrientation(mCurPose.w(),mCurPose.x(),mCurPose.y(),mCurPose.z());
+            #endif
+        }
 
 
 	 	 mSumW += msg->pose.pose.orientation.z;
@@ -2313,6 +2338,7 @@ private:
     ros::ServiceServer mGetStatus;    
     ros::ServiceServer mAddWayPt;    
     ros::ServiceServer mQueryWayPt;    
+    ros::ServiceServer mEnableVioSrv;    
 	ros::ServiceServer mGetCalibStatusSrv;
     ros::Subscriber mOdomRelative;
     ros::Subscriber mTof;

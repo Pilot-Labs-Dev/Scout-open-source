@@ -148,7 +148,5 @@ namespace roller_eye{
         if(parse_vio_param(data,param)<0){
             param.enable=false;
         }
-    }
-
-   
+    }   
 }

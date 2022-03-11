@@ -322,15 +322,6 @@ public:
         plt_assert(mAcc->enable(0,1)==0);
         mAccSkip=mGyroSkip=0;
         PLOG_INFO(SENSOR_NODE_TAG,"start get 6dof imu data");
-        static bool bFirst = true;
-        if (bFirst){
-            bFirst = false;
-            pthread_attr_t attr;   
-            pthread_attr_init (&attr);
-            int policy = api_get_thread_policy (&attr);
-            api_set_thread_policy(&attr, SCHED_FIFO);
-            api_set_thread_priority(&attr, 70);
-        }
     }
     void stop()
     {
