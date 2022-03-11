@@ -3,8 +3,10 @@
    This repository contains source code database for Moorebot Scout, an AI-powered security mobile robot built upon Linux and ROS. Moorebot Code name "Roller Eye”, Scout is one of the most successful crowdfunded robotic projects. Equipped with many advanced sensors and AI algorithms, Scout is an ideal assistant for home monitoring with no blind spot. Its capabilities include object recognition, work with Amazon Alexa and Google Home, and monocular SLAM. For security reasons, Scout's communication layer is not part of the open source. Developers need to build their own communication. Developers can also build extension tools through the UART port on Scout's back.
 
 2.Getting started  
+
   (1) .Requirements  
 	The roller_eye needs to be compiled using the Ubuntu system. It is recommended to use Ubuntu18.04
+	
   (2) .Build  
        Use the container linked below to compile in Ubuntu:
 	 https://github.com/Pilot-Labs-Dev/binary.git
