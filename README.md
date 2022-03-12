@@ -39,8 +39,12 @@
 
       ⑤         How to obtain IMU data  
        Subscribe to the topic "/SensorNode/imu" to get sensor_msgs::Imu message
-
-  (4) .Communication  
+  (4) .Vio 
+        Vio source address:
+	
+        https://github.com/Pilot-Labs-Dev/vio.git
+  
+  (5) .Communication  
         e-mail: contactus@moorebot.com
 
 
