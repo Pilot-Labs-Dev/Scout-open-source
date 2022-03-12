@@ -53,8 +53,12 @@
 
        2. Enter the password "123456"   
        
-        ![image](https://github.com/Pilot-Labs-Dev/Scout-open-source/blob/main/png/bb616c1a9600e38da73e4ce31c9b8fb.jpg?raw=true)
-        ![image](https://github.com/Pilot-Labs-Dev/Scout-open-source/blob/main/png/3c99e2d1bbb31cb91af77fdd0d39cc5.jpg?raw=true)
+![image](https://github.com/Pilot-Labs-Dev/Scout-open-source/blob/main/png/bb616c1a9600e38da73e4ce31c9b8fb.jpg?raw=true)
+
+
+![image](https://github.com/Pilot-Labs-Dev/Scout-open-source/blob/main/png/3c99e2d1bbb31cb91af77fdd0d39cc5.jpg?raw=true)
+
+
 
 
   (6) .Communication  
