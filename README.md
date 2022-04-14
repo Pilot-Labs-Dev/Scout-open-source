@@ -39,6 +39,62 @@
 
       ⑤         How to obtain IMU data  
        Subscribe to the topic "/SensorNode/imu" to get sensor_msgs::Imu message
+       
+       ⑥ How to run python code
+
+6.1 Create a python fille like "example.py" and define your function, for example, the following defines a start() function
+
+def start():
+  rollereye.timerStart()
+  rollereye.set_rotationSpeed(100)
+  rollereye.set_translationSpeed(0.3)
+  while rollereye.getTimerTime() &lt;= 12000:  
+    rollereye.set_translate_rotate(2,270)
+
+6.2 Add the import library above the function
+
+# -*- coding: utf-8 -*-
+import sys
+sys.path.append("/usr/local/lib")
+from rollereye import *
+rollereye.start()
+
+6.3 Add the main function below the function
+
+if __name__ == '__main__':
+   try:
+      start()
+   except Exception as e:
+      rollereye.handle_exception(e.__class__.__name__ + ': ' + e.message)
+   rollereye.stop()
+
+6.4 A complete python script is as follows
+
+# -*- coding: utf-8 -*-
+import sys
+sys.path.append("/usr/local/lib")
+from rollereye import *
+rollereye.start()
+
+def start():
+  rollereye.timerStart()
+  rollereye.set_rotationSpeed(100)
+  rollereye.set_translationSpeed(0.3)
+  while rollereye.getTimerTime() &lt;= 12000:  
+    rollereye.set_translate_rotate(2,270)
+
+if __name__ == '__main__':
+   try:
+      start()
+   except Exception as e:
+      rollereye.handle_exception(e.__class__.__name__ + ': ' + e.message)
+   rollereye.stop()
+
+6.5 Run the python script
+
+python exampley.py
+
+       
   (4) .Vio 
   
         Vio source address:
