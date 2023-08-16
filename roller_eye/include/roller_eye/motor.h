@@ -18,13 +18,13 @@ namespace roller_eye{
 
 #if defined(USE_DEFALUT_MOTOR)
 #define MACC_MOTOR_MAX_RPM          (180.0) //unit:rpm
-#define MACC_CAR_WIDTH         8.0e-2   // unit: m                      
-#define MACC_CAR_HEIGHT        5.3e-2                          
+#define MACC_CAR_WIDTH         8.0e-2   // unit: m
+#define MACC_CAR_HEIGHT        5.3e-2
 #define MACC_ROLL_DIAMETER   5.0e-2
 #elif defined(USE_PLUGIN_MOTOR)
 #define MACC_MOTOR_MAX_RPM          (180.0) //unit:rpm
-#define MACC_CAR_WIDTH         0.14   // unit: m                      
-#define MACC_CAR_HEIGHT        0.16                          
+#define MACC_CAR_WIDTH         0.14   // unit: m
+#define MACC_CAR_HEIGHT        0.16
 #define MACC_ROLL_DIAMETER   8.0e-2
 #else
 #error "motor type error"
@@ -45,13 +45,16 @@ namespace roller_eye{
         virtual MotorDriverType GetDriverType(){return MotorDriverType::STSPIN240;}
 
         virtual int setParam(int idx,float speed,MotorStatus status);
-         int powerON();
+        virtual int driveF8003(int idx, float speed){}
+        int powerON();
         int powerOFF();
         virtual int flush()=0;
-        virtual int drive(vector<int> vDir, vector<int> vSpeed){return 0;}
-        virtual void covertSpeed(float& x, float& y){}
+
+        virtual int drive(vector<int> vDir, vector<int> vSpeed){}
+        virtual void convertSpeed(float& x, float& y){}
+        virtual void convertSpeedTrackModel(float& x, float& y){}
     protected:
-        virtual int powerOn()=0;       
+        virtual int powerOn()=0;
         virtual int powerOff()=0;
         void reset();
         struct Param{
@@ -62,16 +65,16 @@ namespace roller_eye{
         int mSpeedChanged[MOTOR_NUM];
         int mDirChanged[MOTOR_NUM];
         int MOROR_SET_DIR_DELAY;
-        constexpr static  float E=100.0/(MACC_MOTOR_MAX_F); 
+        constexpr static  float E=100.0/(MACC_MOTOR_MAX_F);
    };
 
    class MaccumMotor:public Motor{
     public:
         MaccumMotor();
         ~MaccumMotor();
-    
+
         int flush();
-        int drive(vector<int> vDir, vector<int> vSpeed);        
+        int drive(vector<int> vDir, vector<int> vSpeed);
         MotorDriverType GetDriverType(){return MotorDriverType::STSPIN240;}
     private:
         int powerOn();
@@ -84,10 +87,12 @@ namespace roller_eye{
     public:
         MaccumMotorFS8003();
         ~MaccumMotorFS8003();
-    
+
         int flush();
-        int drive(vector<int> vDir, vector<int> vSpeed);        
-        void covertSpeed(float& x, float& y);
+        int drive(vector<int> vDir, vector<int> vSpeed);
+        void convertSpeed(float& x, float& y);
+        void convertSpeedTrackModel(float& x, float& y);
+        virtual int driveF8003(int idx, float speed);
         MotorDriverType GetDriverType(){return MotorDriverType::FS8003;}
     private:
         int powerOn();

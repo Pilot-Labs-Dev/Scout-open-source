@@ -18,8 +18,8 @@
 
     void CVGreyImageStream::onParamChanged(CaputreParam *param, bool resume)
     {
-        ROS_INFO("CVGreyImageStream::onParamChanged >>>%d, %d, %d, 0x%x",
-                                    param->sInfo.fInfo.width, param->sInfo.fInfo.height, param->sInfo.fpsDen, param->sInfo.fInfo.fmt);
+        // ROS_INFO("CVGreyImageStream::onParamChanged >>>%d, %d, %d, 0x%x",
+                                    // param->sInfo.fInfo.width, param->sInfo.fInfo.height, param->sInfo.fpsDen, param->sInfo.fInfo.fmt);
         if ((!resume && !mStream) ||
             (resume && !mNeedResume)) {
             mNeedResume = false;
@@ -28,10 +28,10 @@
         if (!resume){
             mNeedResume = true;
             stopStream();
-            ROS_INFO("CVGreyImageStream::onParamChanged >>> stop END");
+            // ROS_INFO("CVGreyImageStream::onParamChanged >>> stop END");
         }else {
             mNeedResume = false;
-            ROS_INFO("CVGreyImageStream::onParamChanged >>> END");
+            // ROS_INFO("CVGreyImageStream::onParamChanged >>> END");
         }
     }
 
@@ -64,15 +64,15 @@
     void CVGreyImageStream::stopStream()
     {
         lock_guard<recursive_mutex> lock(mReMutex);
-        if(mStream!=NULL){    
-            video_stream_destory(mStream);    
+        if(mStream!=NULL){
+            video_stream_destory(mStream);
             mStream=NULL;
         }
     }
     void getROICVImg(cv::Mat& src,cv::Mat& dst,cv::Rect2f &roi)
     {
          cv::Rect rect(round(roi.x*src.cols),round(roi.y*src.rows),round(roi.width*src.cols),round(roi.height*src.rows));
-  
+
         rect.x=std::max(0,rect.x);
         rect.x=std::min(rect.x,src.cols-1);
         rect.width=std::min(rect.width,src.cols-rect.x);

@@ -27,7 +27,7 @@ namespace roller_eye{
             param.dog=data["dog"];
             param.cat=data["cat"];
             param.motion=data["motion"];
-    
+
             param.zone.enable=data["zone"]["active"];
             param.zone.motion=data["zone"]["motion"];
             param.zone.contours.clear();
@@ -83,12 +83,16 @@ namespace roller_eye{
         if(mGetNavStatusClient.call(req)){
             bPatrol = req.response.status;
         }
-        if(param.person && (!close || bPatrol)){      
-            if(!mPersion){ 
+        PLOG_DEBUG(PARAM_UTIL_TAG, "setupMonitor bPatrol:%d %d %d", bPatrol, param.person, close);
+        if(param.person && (!close || bPatrol)){
+            PLOG_DEBUG(PARAM_UTIL_TAG, "%s:%d",__FILE__, __LINE__);
+            if(!mPersion){
+                PLOG_DEBUG(PARAM_UTIL_TAG, "%s:%d",__FILE__, __LINE__);
                 mPersion=start_monitor_person(mHandle);
             }
         }else{
-            if (mPersion){ 
+            if (mPersion){
+                PLOG_DEBUG(PARAM_UTIL_TAG, "%s:%d",__FILE__, __LINE__);
                 stop_monitor_person(mPersion);
             }
         }
@@ -120,11 +124,12 @@ namespace roller_eye{
                 stop_monitor_motion(mMotion);
             }
         }
+        //PLOG_INFO(PARAM_UTIL_TAG,"monitor status:person=%d,dog=%d,cat=%d,motion=%d,close=%d",param.person,param.dog,param.cat,motion,close);
     }
     int  MonitorHandle::setupZone(const MonitorParam& param)
     {
         roller_eye::motion_set_zone par;
-        par.request.contours=param.zone.contours;       
+        par.request.contours=param.zone.contours;
         if(!mSetZone.call(par)){
             return -1;
         }
@@ -140,7 +145,7 @@ namespace roller_eye{
             return -1;
         }
     }
-    
+
     void load_vio_param(VioParam &param)
     {
         json data;
@@ -148,5 +153,7 @@ namespace roller_eye{
         if(parse_vio_param(data,param)<0){
             param.enable=false;
         }
-    }   
+    }
+
+
 }

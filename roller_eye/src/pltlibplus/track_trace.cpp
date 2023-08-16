@@ -3,13 +3,16 @@
 #include <iostream>
 #include"track_trace.h"
 #include "roller_eye/plt_config.h"
+#include "roller_eye/param_utils.h"
 
 #define TRACK_POINT_SIZE                11
 #define TRACK_PIONT_FORMAT      "%ld,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%f,%f,%f\n"
 
-#define  TRACK_VELOCITY                     0.2
+#define TRACK_TRACE_TAG          "TrackTrace"
+
+#define  TRACK_VELOCITY                     0.2 // track speed
 //#define TRACK_LOOK_DISTANCE                       0.3
-#define TRACK_LOOK_DISTANCE                       0.2  
+#define TRACK_LOOK_DISTANCE                       0.2
 #define TRACK_MIN_DISTANCE                           0.1
 #define TRACK_BIG_ANGLE                                  (M_PI*2/3)
 namespace roller_eye{
@@ -85,7 +88,7 @@ namespace roller_eye{
             if (dis > maxDist){
                 mMaxTimestamp = it->timestamp;
                 maxDist = dis;
-            }         
+            }
          }
          return mPoints.empty()?-1:0;
      }
@@ -177,7 +180,7 @@ namespace roller_eye{
              if ( dis > distance){
                  std::cout<<"TrackList::erase cnt "<<cnt<<" "<<dis<<std::endl;
                  break;
-             } 
+             }
              cnt++;
          }
 
@@ -218,7 +221,7 @@ namespace roller_eye{
         mTracks=tracks;
         mTrackOrigSize = mTracks->size();
     }
-    
+
     shared_ptr<TrackList> & TrackTrace::getTrackList()
     {
 		return mTracks;
@@ -226,8 +229,8 @@ namespace roller_eye{
 
     float TrackTrace::getTracePercent()
     {
-        float per = 0.0;
-        if (mTracks){
+        float per = 1.0;
+        if (mTracks && mTrackOrigSize>0){
             per = static_cast<float>(mTracks->size())/mTrackOrigSize;
         }
 
@@ -261,7 +264,7 @@ namespace roller_eye{
     bool TrackTrace::traceOnce(float& vx,float &vy,float &w,float& yaw)
     {
         vx=vy=w=0.0;
-
+        yaw = 0.0;
         if(mTracks->size()==0){
             return false;
         }
@@ -272,13 +275,12 @@ namespace roller_eye{
         while(mTracks->size()!=0){
             calDistanceAndAngle(mOrientation,mPositon,mTracks->back().position,angle,distance);
             bigAngle=abs(angle)>TRACK_BIG_ANGLE;
-            //printf("traceOnce angle:%f distance:%f\n",angle,distance);
+            // PLOG_DEBUG(TRACK_TRACE_TAG, "traceOnce angle:%f distance:%f, bigAngle: %d\n",angle,distance, bigAngle);
             if(distance>mTrackLookDistance||mTracks->size()==1||bigAngle){
                 break;
             }else{
                 if (maxTimeStamp == mTracks->back().timestamp){
                     mTracks->pop();
-                    std::cout<<"traceOnce find max distance point: "<<maxTimeStamp<<std::endl;
                     break;
                 }
                 mTracks->pop();
@@ -294,12 +296,18 @@ namespace roller_eye{
             return true;
         }
 
-        vx=0.0;
-        vy=TRACK_VELOCITY;
-        w=2*std::sin(angle)*vy/distance;
-        // if ((mTracks->size()>30) && abs(angle) < 0.026){   //for test
-        //     w=0;
-        // }
+        vx = 0.0;
+        vy = TRACK_VELOCITY;
+        w = (distance > 0.0) ? 2*std::sin(angle)*vy/distance : 0;
+        if (PltConfig::getInstance()->isTrackModel())  /// Track model ...
+		{
+			if (abs(vx)<0.01 && abs(vy)<0.01)
+				w += 2.0;		///1.5;                 ///roll for belt
+		}
+         if ((mTracks->size()>30) && abs(angle) < 0.0526){   //for test ,don't roll when angle < 3 degrees
+             w=0;
+         }
+		// PLOG_DEBUG(TRACK_TRACE_TAG, " vx: %f,vy: %f,w: %f,yaw: %f)",vx,vy,w,yaw );
         return false;
     }
     bool TrackTrace::done()

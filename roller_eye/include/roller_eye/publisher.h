@@ -42,11 +42,11 @@ public:
 
     }
     void subcriberConnect(const ros::SingleSubscriberPublisher& sub)
-    {  
+    {
         int cnt=++mConnec;
         if(mIn && cnt>0){
             plt_assert(cnt>0);
-            mIn(cnt);   
+            mIn(cnt);
         }
     }
     void disconnectConnect(const ros::SingleSubscriberPublisher& sub)
@@ -58,7 +58,7 @@ public:
         int cnt=--mConnec;
         if(mOut){
             plt_assert(cnt>=0);
-            mOut(cnt);   
+            mOut(cnt);
         }
     }
     void unSubConnect()
@@ -66,7 +66,7 @@ public:
         int cnt=--mConnec;
         if(mOut && cnt>=0){
             plt_assert(cnt>=0);
-            mOut(cnt);   
+            mOut(cnt);
         }
     }
     void publish(const T& msg){

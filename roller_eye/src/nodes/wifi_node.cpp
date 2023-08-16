@@ -1,6 +1,7 @@
 #include"ros/ros.h"
 #include"roller_eye/plog_plus.h"
 #include"roller_eye/status.h"
+#include"roller_eye/wifi_add_ssid_key.h"
 #include "roller_eye/wifi_switch_ssid_key.h"
 #include"roller_eye/wifi_switch_mode.h"
 #include"roller_eye/wifi_scan_list.h"
@@ -26,6 +27,7 @@ class InitDZLog{
 			logpath:	"/var/log/node/" WIFI_NODE_TAG ".log",
 			cname:		WIFI_NODE_TAG
 		};
+
         system("rm /var/roller_eye/config/log/" WIFI_NODE_TAG ".cfg");
         system("rm /var/roller_eye/config/log/" WIFI_NODE_TAG ".level");
 		if(0 != dzlogInit(&arg,4)){
@@ -59,13 +61,12 @@ public:
 
     void onEvent(int mode,int status)
     {
+        WPAWiFiOps::getInstance()->setStatus(status);
         vector<int32_t> s;
-
         if(mapMode(mode)<0||mapStatus(status)<0){
             PLOG_ERROR(WIFI_TAG,"unkonw event");
             return ;
         }
-
         s.push_back(mode);
         s.push_back(status);
         mPub.pubStatus(s);
@@ -82,7 +83,7 @@ public:
         }
         return 0;
     }
-    
+
     static int mapStatus(int &status)
     {
         int ret=0;
@@ -90,28 +91,28 @@ public:
         {
         case WiFiOps::WIFI_EVENT_CONNECTED:
             status=roller_eye::status::WIFI_STATUS_CONNECTED;
-            //WiFiNode::publish_config_net(WIFI_CONFIG_SUCCESS);       
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONNECTED");   
+            //WiFiNode::publish_config_net(WIFI_CONFIG_SUCCESS);
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONNECTED");
             break;
         case WiFiOps::WIFI_EVENT_DISCONNECT:
             status=roller_eye::status::WIFI_STATUS_DISCONNECT;
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_DISCONNECT");   
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_DISCONNECT");
             break;
         case WiFiOps::WIFI_EVENT_CONNECTING:
              status=roller_eye::status::WIFI_STATUS_CONNECTING;
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONNECTING");   
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONNECTING");
             break;
         case WiFiOps::WIFI_EVENT_WRONG_KEY:
             status=roller_eye::status::WIFI_STATUS_WRONG_KEY;
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_WRONG_KEY");   
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_WRONG_KEY");
             break;
         case WiFiOps::WIFI_EVENT_CONN_FAIL:
             status=roller_eye::status::WIFI_STATUS_CONN_FAIL;
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONN_FAIL");        
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONN_FAIL");
             break;
         case WiFiOps::WIFI_EVENT_STOP:
             status=roller_eye::status::WIFI_STATUS_STOP;
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_STOP");   
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_STOP");
             break;
         default:
             ret=-1;
@@ -133,9 +134,10 @@ class WiFiNode{
         PltConfig::getInstance()->getSN(sn);
         if (sn.length()>10){
             PltConfig::getInstance()->updateSN(sn);
-        }        
+        }
         mWifiListener=new WiFiNodeListener(mHandle);
         WPAWiFiOps::getInstance()->setListener(mWifiListener);
+        mAdd=mHandle.advertiseService("add_wifi", &WiFiNode::wifi_add_ssid_key, this);
         mSwitchSsidKey=mHandle.advertiseService("switch_wifi_ssidkey", &WiFiNode::wifi_switch_ssid_key, this);
         mSwitch=mHandle.advertiseService("switch_wifi", &WiFiNode::wifi_switch_mode, this);
         mGetList=mHandle.advertiseService("wifi_scan_list", &WiFiNode::wifi_scan_list, this);
@@ -146,8 +148,8 @@ class WiFiNode{
         mConfigNetSub=mHandle.subscribe("/WiFiNode/configNet",1,
                                                                         &WiFiNode::onConfigWifi,this);
         mWifiMonitor=mHandle.subscribe("/WiFiNode/status",10,&WiFiNode::wifiCloudCallback, this);
-        m_timer= mHandle.createTimer(ros::Duration(1), 
-                                                                           &WiFiNode::timerCallback, this, false, false);  
+        m_timer= mHandle.createTimer(ros::Duration(1),
+                                                                           &WiFiNode::timerCallback, this, false, false);
         m_timer.start();
 
     }
@@ -156,48 +158,73 @@ class WiFiNode{
 
     }
     void run(){
+        PLOG_INFO(WIFI_TAG,"call WPAWiFiOps::getInstance()->run()\n");
         WPAWiFiOps::getInstance()->run();
     }
-    
+
     void timerCallback(const ros::TimerEvent& event)
     {
         static int counter = 0;
+        static int disconnect = 0;
         if (WIFI_OP_SWITCH ==  mWifiOpConfigNet){
+            disconnect = 0;
             ros::Time curTm = ros::Time::now();
-            if (counter++>60){                   
+            PLOG_INFO(WIFI_TAG,"timerCallback %d",  counter);
+            if (counter++>60){
                 if (WIFI_OP_SWITCH == mWifiOpConfigNet){
                     mWifiOpConfigNet = WIFI_OP_NONE;
                     WPAWiFiOps::getInstance()->updateWiFis(false);
                 }
-                switchMode(WPAWiFiOps::getInstance()->getMode());  
+                PLOG_ERROR(WIFI_TAG,"call  reconnectWifi %d",WPAWiFiOps::getInstance()->getMode());
+                WPAWiFiOps::getInstance()->reconnectWifi();
+            }else if (status::WIFI_STATUS_STOP == mWifiStatus){
+                PLOG_INFO(WIFI_TAG,"call  switchMode");
+                switchMode(WPAWiFiOps::getInstance()->getMode());
+            }
+        }else if (WIFI_OP_CONFIG==mWifiOpConfigNet){
+            counter = 0;
+            disconnect = 0;
+            PLOG_INFO(WIFI_TAG,"config wifi %d", mConfigStatus);
+            if (WIFI_CONFIG_FAILURE == mConfigStatus){
+                mConfigStatus = WIFI_CONFIG_NONE;
+                mWifiOpConfigNet = WIFI_OP_NONE;
+                PLOG_INFO(WIFI_TAG,"call  switchMode");
+                WPAWiFiOps::getInstance()->stopScript(1);
+                switchMode(WiFiOps::WIFI_MODE_AP);
+            }else if (WIFI_CONFIG_START == mConfigStatus &&
+                    status::WIFI_STATUS_STOP == mWifiStatus ){
+                PLOG_INFO(WIFI_TAG,"call  switchMode");
+                switchMode(WiFiOps::WIFI_MODE_STA);
             }
         }else{
             counter = 0;
-            if (WPAWiFiOps::getInstance()->getMode() == WiFiOps::WIFI_MODE_STA && 
-                   status::WIFI_STATUS_CONNECTED == mWifiStatus ){
-                    vector<string> vWifis;
-                    PltConfig::getInstance()->getWiFis(vWifis);  
-                    if (vWifis.size()>=2){
-                        char buff[256];
-                        get_gateway(buff);  
-                        WPAWiFiOps::getInstance()->resetIsSwitch();
-                        if (ping_status(buff) !=0 &&
-                            WPAWiFiOps::getInstance()->getMode() == WiFiOps::WIFI_MODE_STA ){
-                            if (!WPAWiFiOps::getInstance()->isSwitch()){
-                                WPAWiFiOps::getInstance()->reconnectWifi();
-                            }
-                        }
-                    }    
+            if (WPAWiFiOps::getInstance()->getMode() == WiFiOps::WIFI_MODE_STA &&
+                   status::WIFI_STATUS_CONNECTING != mWifiStatus &&
+                   !WPAWiFiOps::getInstance()->isRunningScript() &&
+                   WPAWiFiOps::getInstance()->isDisconnect()){
+                    //PLOG_INFO(WIFI_TAG,"disconnect = %d", disconnect);
+                if (10 == ++disconnect){
+                    PLOG_INFO(WIFI_TAG,"lost wifi call  reconnectWifi");
+                    WPAWiFiOps::getInstance()->reconnectWifi();
+                }
+            }else{
+                if (WPAWiFiOps::getInstance()->isDisconnect()){
+                    PLOG_INFO(WIFI_TAG,"lost wifi!");
+                }
+                disconnect = 0;
             }
         }
     }
 
     void scanLoop()
     {
+        PLOG_INFO(WIFI_TAG,"call scanLoop\n");
         int nCnt = 0;
         m_bScanning = true;
         queue<vector<WiFiInFo>> qvWifis;
-        
+        queue<vector<WiFiInFo>> empty;
+	    //swap(empty, m_qvWifis);
+        WPAWiFiOps::getInstance()->startScanWifi();
         while(m_bScanning){
             if (mWifiOpConfigNet != WIFI_OP_NONE){
                 WPAWiFiOps::getInstance()->stopScanWifi();
@@ -212,7 +239,9 @@ class WiFiNode{
                     qvWifis.push(wifis);
                     if (qvWifis.size() > 6){
                         qvWifis.pop();
-                    }                
+                    }
+
+                    WPAWiFiOps::getInstance()->updateScanResult(wifis);
                     gMutex.lock();
                     gvWifis.clear();
                     map<string,bool> mapSsid;
@@ -229,6 +258,9 @@ class WiFiNode{
                     }
                    gMutex.unlock();
                 }
+                if (nCnt>1){
+                    usleep(1*1000*1000);
+                }
             }else{
                 gMutex.lock();
                 gvWifis.clear();
@@ -239,15 +271,46 @@ class WiFiNode{
                 break;
             }
         }
-        m_bScanning = false;   
+        WPAWiFiOps::getInstance()->stopScanWifi();
+        m_bScanning = false;
+        PLOG_INFO(WIFI_TAG,"quit scanloop\n");
     }
 
     void publish_config_net(int8_t status)
     {
+        PLOG_INFO(WIFI_TAG,"publish_config_net %d", status);
         wifi_config_info info;
         info.cmd = status;
         info.ssid = mStrSsid;
         mConfigNetPub.publish(info);
+    }
+
+    bool wifi_add_ssid_key(roller_eye::wifi_add_ssid_keyRequest  &req,roller_eye::wifi_add_ssid_keyResponse &resp)
+    {
+        int mode=req.mode;
+        if(WiFiNodeListener::mapMode(mode)<0){
+            return false;
+        }
+        // if (req.ssid.length()<1){
+        //     return false;
+        // }
+
+        PLOG_INFO(WIFI_TAG,"wifi_add_ssid_key:%s ,%s",req.ssid.c_str(),req.key.c_str());
+        mStrSsid = req.ssid;
+        if (WiFiOps::WIFI_MODE_AP != mode){
+            publish_config_net(WIFI_CONFIG_START);
+        }
+
+        resp.status=WPAWiFiOps::getInstance()->addSSIDKey(mode,req.ssid,req.key)==0?status::PROCESS_OK:status::PROCESS_ERROR;
+        if(resp.status!=status::PROCESS_OK){
+            PLOG_ERROR(WIFI_TAG,"add wifi fail");
+            if (WiFiOps::WIFI_MODE_AP != mode){
+                publish_config_net(WIFI_CONFIG_FAILURE);
+            }
+            PLOG_INFO(WIFI_TAG,"WiFi setSTAMode %s:%d %s\n",__FILE__, __LINE__,__FUNCTION__);
+            return false;
+        }
+        return true;
     }
 
     bool wifi_switch_ssid_key(roller_eye::wifi_switch_ssid_keyRequest  &req,roller_eye::wifi_switch_ssid_keyResponse &resp)
@@ -255,15 +318,19 @@ class WiFiNode{
         int mode=req.mode;
         if(WiFiNodeListener::mapMode(mode)<0){
             return false;
-        }       
+        }
 
+        PLOG_INFO(WIFI_TAG,"wifi_switch_ssid_key %s %s\n",req.ssid.c_str(),    req.key.c_str());
         resp.status=WPAWiFiOps::getInstance()->addSSIDKey(mode,req.ssid,req.key)==0?status::PROCESS_OK:status::PROCESS_ERROR;
         if(resp.status!=status::PROCESS_OK){
-            PLOG_ERROR(WIFI_TAG,"wifi_switch_ssid_key wifi fail");  
+            PLOG_ERROR(WIFI_TAG,"wifi_switch_ssid_key wifi fail");
             return false;
         }
-        mWifiOpConfigNet = WIFI_OP_SWITCH;     
-        switchMode(WiFiOps::WIFI_MODE_STA,  req.ssid,req.key);        
+        PLOG_INFO(WIFI_TAG,"call  switchMode %d",WPAWiFiOps::getInstance()->getMode());
+
+        mWifiOpConfigNet = WIFI_OP_SWITCH;
+        WPAWiFiOps::getInstance()->stopScript(1);
+        switchMode(WiFiOps::WIFI_MODE_STA,  req.ssid,req.key);
         return true;
     }
 
@@ -277,6 +344,7 @@ class WiFiNode{
 
         mWifiListener->onEvent(mode,WPAWiFiOps::WIFI_EVENT_CONNECTING);
         WPAWiFiOps::getInstance()->setLastMode(mode);
+        PLOG_INFO(WIFI_TAG,"WiFi switchMode %d\n",mode);
         resp.status=switchMode(mode)==0?status::PROCESS_OK:status::PROCESS_ERROR;
         if(resp.status!=status::PROCESS_OK){
             PLOG_ERROR(WIFI_TAG,"add wifi fail");
@@ -288,21 +356,23 @@ class WiFiNode{
     bool wifi_scan_list(roller_eye::wifi_scan_listRequest &req,roller_eye::wifi_scan_listResponse& resp)
     {
         gettimeofday(&gScanCmdTm, nullptr);
-        
+
         if (mWifiOpConfigNet !=WIFI_OP_NONE){
             return false;
         }
 
         if (!m_bScanning){
-           std::thread th(&WiFiNode::scanLoop, this);        
-           th.detach(); 
+          PLOG_ERROR(WIFI_TAG,"wifi_scan_list %s:%d\n", __FILE__, __LINE__);
+           std::thread th(&WiFiNode::scanLoop, this);
+           th.detach();
         }
-        
-        int waits=0; 
+
+        int waits=0;
         while (gvWifis.empty() && waits++<10){
             usleep(1000*1000);
         }
 
+        PLOG_INFO(WIFI_TAG,"wifi_scan_list %s:%d %d\n", __FILE__, __LINE__,gvWifis.size());
         gMutex.lock();
         if (gvWifis.size() > 0){
              for(auto& wifi:gvWifis){
@@ -316,35 +386,40 @@ class WiFiNode{
                 resp.result.push_back(info);
             }
         }
-        gMutex.unlock();        
+        gMutex.unlock();
 
         return true;
     }
 
     bool wifi_get_mode(roller_eye::wifi_get_modeRequest &req,roller_eye::wifi_get_modeResponse& resp)
     {
-        resp.mode = WPAWiFiOps::getInstance()->getMode();  
+        resp.mode = WPAWiFiOps::getInstance()->getMode();
         return true;
     }
-   
+
     void onConfigWifi(const wifi_config_info& info)
     {
-        switch(info.cmd){ 
-            case WIFI_CONFIG_START:    
+        mConfigStatus = info.cmd;
+        switch(info.cmd){
+            case WIFI_CONFIG_START:
             mWifiOpConfigNet = WIFI_OP_CONFIG;
             PLOG_INFO(WIFI_TAG,"WIFI_CONFIG_START");
             break;
-            case WIFI_CONFIG_SUCCESS:    
+            case WIFI_CONFIG_SUCCESS:
             mWifiOpConfigNet = WIFI_OP_NONE;
+            mConfigStatus = WIFI_CONFIG_FAILURE;
             break;
-            case WIFI_CONFIG_FAILURE:    
-            mWifiOpConfigNet = WIFI_OP_NONE;   
+            case WIFI_CONFIG_FAILURE:
+            //mWifiOpConfigNet = WIFI_OP_NONE;
+
+            PLOG_ERROR(WIFI_TAG,"call  switchMode %d %s %d %s",WPAWiFiOps::getInstance()->getMode(),
+                             __FILE__, __LINE__,__FUNCTION__);
             WPAWiFiOps::getInstance()->stopScript(1);
-            switchMode(WiFiOps::WIFI_MODE_AP);   
+            switchMode(WiFiOps::WIFI_MODE_AP);
             PLOG_INFO(WIFI_TAG,"WIFI_CONFIG_FAILURE");
             break;
             case  WIFI_CONFIG_CANCEL:   //key cancel
-            WPAWiFiOps::getInstance()->updateWiFis(false);     
+            WPAWiFiOps::getInstance()->updateWiFis(false);
             mWifiOpConfigNet = WIFI_OP_NONE;
             PLOG_INFO(WIFI_TAG,"WIFI_CONFIG_CANCEL");
             break;
@@ -367,39 +442,51 @@ class WiFiNode{
             }
             break;
         case status::WIFI_STATUS_DISCONNECT:
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_DISCONNECT");  
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_DISCONNECT");
             if (WIFI_OP_SWITCH == mWifiOpConfigNet){
                 WPAWiFiOps::getInstance()->updateWiFis(false);
                 mWifiOpConfigNet = WIFI_OP_NONE;
             }
-            switchMode(WPAWiFiOps::getInstance()->getMode());  
+
+            PLOG_ERROR(WIFI_TAG,"call  switchMode %d %s %d %d",WPAWiFiOps::getInstance()->getMode(),
+                             __FILE__, __LINE__,__FUNCTION__);
+            switchMode(WPAWiFiOps::getInstance()->getMode());
             break;
         case status::WIFI_STATUS_CONNECTING:
             PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONNECTING");
             break;
         case status::WIFI_STATUS_WRONG_KEY:
-            WPAWiFiOps::getInstance()->updateWiFis(false);
-            if (WIFI_OP_CONFIG ==  mWifiOpConfigNet){              
-                publish_config_net(WIFI_CONFIG_FAILURE);      
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_WRONG_KEY1 %d", mWifiOpConfigNet);
+                WPAWiFiOps::getInstance()->updateWiFis(false);
+            if (WIFI_OP_CONFIG ==  mWifiOpConfigNet){
+                //秘钥错误，配网失败
+                publish_config_net(WIFI_CONFIG_FAILURE);
             }  else{
                 if (WIFI_OP_SWITCH == mWifiOpConfigNet){
                     WPAWiFiOps::getInstance()->updateWiFis(false);
                     mWifiOpConfigNet = WIFI_OP_NONE;
                 }
 
-                switchMode(WPAWiFiOps::getInstance()->getMode());   
+                PLOG_ERROR(WIFI_TAG,"call  switchMode %d %s %d %d",WPAWiFiOps::getInstance()->getMode(),
+                             __FILE__, __LINE__,__FUNCTION__);
+                switchMode(WPAWiFiOps::getInstance()->getMode());
             }
             break;
-        case status::WIFI_STATUS_CONN_FAIL:  
-            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONN_FAIL");  
+        case status::WIFI_STATUS_CONN_FAIL:
+            PLOG_INFO(WIFI_TAG,"WIFI_EVENT_CONN_FAIL");
             if (WIFI_OP_CONFIG ==  mWifiOpConfigNet){
-                switchMode(WiFiOps::WIFI_MODE_STA);   
+                PLOG_ERROR(WIFI_TAG,"call  switchMode %d %s %d %d",WPAWiFiOps::getInstance()->getMode(),
+                             __FILE__, __LINE__,__FUNCTION__);
+                switchMode(WiFiOps::WIFI_MODE_STA);
             }else{
                 if (WIFI_OP_SWITCH == mWifiOpConfigNet){
                     WPAWiFiOps::getInstance()->updateWiFis(false);
                     mWifiOpConfigNet = WIFI_OP_NONE;
                 }
-                switchMode(WPAWiFiOps::getInstance()->getMode());  
+
+                PLOG_ERROR(WIFI_TAG,"call  switchMode %d %s %d %d",WPAWiFiOps::getInstance()->getMode(),
+                             __FILE__, __LINE__,__FUNCTION__);
+                switchMode(WPAWiFiOps::getInstance()->getMode());
             }
             break;
         case status::WIFI_STATUS_STOP:
@@ -416,30 +503,33 @@ class WiFiNode{
     }
     int switchMode(int mode)
     {
+        PLOG_INFO(WIFI_TAG,"switchMode");
         stopScan();
-        return WPAWiFiOps::getInstance()->switchMode(mode);  
+        return WPAWiFiOps::getInstance()->switchMode(mode);
     }
     int switchMode(int mode,string& ssid,string& key)
     {
+        PLOG_INFO(WIFI_TAG,"switchMode");
        stopScan();
-       WPAWiFiOps::getInstance()->switchMode(WiFiOps::WIFI_MODE_STA,  ssid, key);     
+       WPAWiFiOps::getInstance()->switchMode(WiFiOps::WIFI_MODE_STA,  ssid, key);
     }
-  private:    
-    ros::NodeHandle mHandle;  
+  private:
+    ros::NodeHandle mHandle;
     ros::ServiceServer mAdd;
     ros::ServiceServer mSwitchSsidKey;
-    ros::ServiceServer mConfigSsidResult;    
+    ros::ServiceServer mConfigSsidResult;
     ros::ServiceServer mSwitch;
     ros::ServiceServer mGetList;
     ros::ServiceServer mGetMode;
-    ros::Publisher mConfigNetPub;   
+    ros::Publisher mConfigNetPub;
     ros::Subscriber mConfigNetSub;
     ros::Subscriber mWifiMonitor;
     ros::Timer m_timer;
     int mWifiStatus;
     string mStrSsid;                                     //ssid
-    WIFI_OP_T mWifiOpConfigNet = WIFI_OP_NONE;        
+    WIFI_OP_T mWifiOpConfigNet = WIFI_OP_NONE;
     WiFiNodeListener* mWifiListener;
+    int mConfigStatus = WIFI_CONFIG_NONE;
     bool m_bScanning;
 };
 

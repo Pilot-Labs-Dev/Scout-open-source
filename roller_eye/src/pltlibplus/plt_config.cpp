@@ -26,15 +26,17 @@ void SingleLine::load()
     if(!file.is_open()){
         if(mNeccessary){
             printf("config[%s] not exist\n",mPath.c_str());
+            //PLOG_ERROR(CONFIG_TAG,"config[%s] not exist\n",mPath.c_str());
             plt_assert(false);
         }else{
             printf("config[%s] not exist\n",mPath.c_str());
+            //PLOG_ERROR(CONFIG_TAG,"config[%s] not exist\n",mPath.c_str());
             return;
         }
     }
     file>>mCfg;
     plt_assert(!file.fail());
-    printf("Loading config[%s:%s]\n",mName.c_str(),mCfg.c_str());
+    //PLOG_DEBUG(CONFIG_TAG,"Loading config[%s:%s]\n",mName.c_str(),mCfg.c_str());
 }
   void SingleLine::store()
   {
@@ -64,11 +66,12 @@ void  AutoGenLine::load()
 
         plt_assert(fd>=0);
         plt_assert(lockf(fd,F_LOCK,0)==0);
-         
+
         struct stat s;
         plt_assert(fstat(fd,&s)==0);
         if(mRegen||(s.st_size!=0&&s.st_size!=mLen)){
             if(ftruncate(fd,0)!=0){
+                //PLOG_ERROR(CONFIG_TAG,"Truncate  file[%s] fail\n",mPath.c_str());
                 printf("Truncate  file[%s] fail\n",mPath.c_str());
                 plt_assert(false);
             }
@@ -89,7 +92,7 @@ void  AutoGenLine::load()
         plt_assert(lockf(fd,F_ULOCK,0)==0);
         close(fd);
     }
-    printf("Loading config[%s:%s]\n",mName.c_str(),mCfg.c_str());
+    PLOG_DEBUG(CONFIG_TAG,"Loading config[%s:%s]\n",mName.c_str(),mCfg.c_str());
 }
 void  AutoGenLine::store()
 {
@@ -99,7 +102,7 @@ void  AutoGenLine::store()
 MultiLines::MultiLines(const string& name,bool neccerray):
   Config(name,neccerray)
   {
-      
+
   }
 void MultiLines::load()
 {
@@ -107,6 +110,7 @@ void MultiLines::load()
     ifstream file(mPath);
     if(!file.is_open()){
         if(mNeccessary){
+            //PLOG_ERROR(CONFIG_TAG,"config[%s] not exist\n",mPath.c_str());
             printf("config[%s] not exist\n",mPath.c_str());
             plt_assert(false);
         }else{
@@ -133,6 +137,7 @@ void MultiLines::store()
 JsonConfig::JsonConfig(const string& name,bool neccerray):
 ProcessLockConfig(name,neccerray)
 {
+    //PLOG_ERROR(CONFIG_TAG,"JsonConfig name: %s\n",name.c_str());
     printf("JsonConfig name: %s\n",name.c_str());
 }
 JsonConfig::JsonConfig(const string& path,const string& name,bool neccerray):
@@ -147,7 +152,6 @@ void JsonConfig::load()
         file>>mCfg;
     }catch(...){
         mCfg=nlohmann::json::object();
-        printf("load json config[%s] fail\n",mPath.c_str());
     }
 }
 void JsonConfig::store()
@@ -164,16 +168,17 @@ mSN("sn",false),
 mVersion("version",false),
 mLastPatrolName("lastPatrolName",false),
 mWiFi("wifi",false),
+mLions("lionPars",false),
 mMotorSerial("motor_port"),
+mIbeaconInfo("ibeacon_info"),
 mMotorSpeed("motor_speed",false),
 mMonitor(PARAM_SYSTEM_MONITOR_GROUP),
-mSoundEffect(PARAM_SYSTEM_SOUND_EFFECT, false),
 mMotionCfg(PARAM_SYSTEM_MOTION,false),
 mProxyListCfg(ROLLER_EYE_SOCKPROXY_BASE, "proxy_list.json",true),
+mSoundEffect(PARAM_SYSTEM_SOUND_EFFECT, false),
 mMaxNavSize("nav_maxsize",false),
 mMinBatForPowerOff("minbat_poweroff",false),
-mMinBat("minbat",false),
-mHwVersion("hw_ver")
+mMinBat("minbat",false)
 {
 
 }
@@ -182,19 +187,58 @@ PltConfig::~PltConfig()
 {
 
 }
-
 string& PltConfig::getSN(string& val)
 {
-    mSN.reload();
     mSN.get(val);
     return val;
 }
 
 string& PltConfig::getHwVersion(string& val)
 {
-    mHwVersion.reload();
-    mHwVersion.get(val);
+    val = HW_VERSION;
+    //plt_assert(val.length()==strlen(HW_VERSION));
     return val;
+}
+
+bool PltConfig::isSTMotor()
+{
+    string hwVer;
+    getHwVersion(hwVer);
+    if (hwVer.length() ==10 &&
+         ((hwVer[5] == '0' && hwVer[6] == '0')||
+          (hwVer[5] == '0' && hwVer[6] == '2')) ){
+              return true;
+    }
+
+    return false;
+}
+
+bool PltConfig::isChinaMotor()
+{
+    string hwVer;
+    getHwVersion(hwVer);
+    if (hwVer.length() ==10 &&
+          ((hwVer[5] == '0' && hwVer[6] == '1')||
+          (hwVer[5] == '0' && hwVer[6] == '3')||
+          (hwVer[5] == '0' && hwVer[6] == '4')) ){
+              return true;
+    }
+
+    return false;
+}
+
+bool PltConfig::isTrackModel()
+{
+	DeviceDefaultConfig cfg;
+	nlohmann::json data;
+	getMotionParam(data);
+
+	if((1 ==  cfg.getTrackType()) || (1 == data["track"]))
+	{
+		return true;   /// is Track model ...
+	}
+
+    return false;
 }
 
 string& PltConfig::getLastPatrolName(string& val)
@@ -210,7 +254,7 @@ void  PltConfig::updateSN(const string& val)
 }
 
 void PltConfig::updateVersion(const string& val)
-{    
+{
     mVersion.set(val);
 }
 
@@ -223,7 +267,7 @@ string& PltConfig::getMotorPort(string& val)
 {
     mMotorSerial.get(val);
     plt_assert(val.length()>0);
-    return val; 
+    return val;
 }
 
 vector<string>&  PltConfig::getWiFis(vector<string>& val)
@@ -233,13 +277,28 @@ vector<string>&  PltConfig::getWiFis(vector<string>& val)
     return val;
 }
 
+void PltConfig::getLionPars(vector<float>& vPars)
+{
+    vector<string> vStrPars;
+    mLions.reload();
+    mLions.get(vStrPars);
+
+    for (auto it:vStrPars){
+        istringstream iss(it);
+        float num;
+        iss >> num;
+        vPars.push_back(num);
+    }
+
+}
+
    void PltConfig::getMaxNavSize(int& size)
    {
        string val;
        mMaxNavSize.get(val);
        if (!val.empty()){
-            istringstream iss(val);  
-            iss >> size;  
+            istringstream iss(val);
+            iss >> size;
        }
    }
 
@@ -248,8 +307,8 @@ vector<string>&  PltConfig::getWiFis(vector<string>& val)
        string val;
        mMinBatForPowerOff.get(val);
        if (!val.empty()){
-            istringstream iss(val);  
-            iss >> value;  
+            istringstream iss(val);
+            iss >> value;
        }
    }
 
@@ -259,14 +318,20 @@ vector<string>&  PltConfig::getWiFis(vector<string>& val)
       string val;
        mMinBat.get(val);
        if (!val.empty()){
-            istringstream iss(val);  
-            iss >> value;  
+            istringstream iss(val);
+            iss >> value;
        }
     }
 
 void PltConfig::updateWiFis(const vector<string> &val)
 {
     mWiFi.set(val);
+}
+vector<string>& PltConfig::getIbeaconInfo(vector<string>& val)
+{
+    mIbeaconInfo.get(val);
+    plt_assert(val.size()==3);
+    return val;
 }
 string& PltConfig::getMotorSpeed(string& val)
 {
@@ -297,7 +362,7 @@ void PltConfig::setMotionParam(nlohmann::json& val)
 }
 
 void PltConfig::getProxyList(nlohmann::json& val)
-{    
+{
     mProxyListCfg.reload();
     mProxyListCfg.get(val);
 }
@@ -318,13 +383,14 @@ ReadOnlyConfig::ReadOnlyConfig(string path)
         mConfig<<in;
     }catch(...){
         printf("invalid json config[%s]\n",path.c_str());
+        //PLOG_INFO(CONFIG_TAG,"invalid json config[%s]\n",path.c_str());
     }
 }
 ReadOnlyConfig::~ReadOnlyConfig()
 {
 
 }
-     
+
 int ReadOnlyConfig::getInt(string& key,int def)
 {
     return get<int>(key,def);
@@ -335,11 +401,15 @@ bool ReadOnlyConfig::getBool(string& key,bool def)
 }
 string ReadOnlyConfig::getString(string& key,string def)
 {
-    return get<string>(key,def);    
+    return get<string>(key,def);
 }
 float ReadOnlyConfig::getFloat(string& key,float def)
 {
     return get<float>(key,def);
+}
+double ReadOnlyConfig::getDouble(string& key,double def)
+{
+    return get<double>(key,def);
 }
 template<typename T >
 T ReadOnlyConfig::get(string& key,T def)
@@ -352,13 +422,11 @@ T ReadOnlyConfig::get(string& key,T def)
     }
     std::stringstream ss;
     ss<<"config["<<key<<"]:"<<ret;
-    printf("%s",ss.str().c_str());
     return ret;
 }
 DeviceDefaultConfig::DeviceDefaultConfig():
 mCfg(ROLLER_EYE_CONFIG_BASE"device_default_config")
 {
-
 }
 bool DeviceDefaultConfig::getMotorAdjust()
 {
@@ -409,12 +477,12 @@ float DeviceDefaultConfig::getMotorFilterUpdateSigma()
     {
          string key="night_mode_min_cnt";
         return mCfg.getInt(key,20);
-    }    
+    }
     int DeviceDefaultConfig::getNightModeDayCnt()
     {
          string key="night_mode_day_cnt";
         return mCfg.getInt(key,2);
-    }    
+    }
     int DeviceDefaultConfig::getNightModeSamples()
     {
          string key="night_mode_sample";
@@ -527,5 +595,185 @@ float DeviceDefaultConfig::getMotorFilterUpdateSigma()
     {
         string key="track_look_distance";
         return mCfg.getFloat(key,0.2);
-    }    
+    }
+
+    float DeviceDefaultConfig::getBackupVx()
+    {
+        string key="backup_vx";
+        return mCfg.getFloat(key,0.05);
+    }
+
+    float DeviceDefaultConfig::getBackupVy()
+    {
+        string key="backup_vy";
+        return mCfg.getFloat(key,-0.14);
+    }
+
+    float DeviceDefaultConfig::getBackupWz()
+    {
+        string key="backup_wz";
+        return mCfg.getFloat(key,0.0);
+    }
+
+    int DeviceDefaultConfig::getBackupDuration()
+    {
+        string key="backup_duration";
+        return mCfg.getInt(key,1000);
+    }
+
+    int DeviceDefaultConfig::getTryCount()
+    {
+        string key="try_count";
+        return mCfg.getInt(key,12);
+    }
+
+
+    float DeviceDefaultConfig::getAlignXOffset()
+    {
+        string key="align_x_offset";
+        return mCfg.getFloat(key,0.0);   ///<<< decrease from 0.012
+    }
+
+    float DeviceDefaultConfig::getAlignMinX()
+    {
+        string key="align_min_x";
+        return mCfg.getFloat(key,0.012);   ///<<< decrease from 0.012
+    }
+    float DeviceDefaultConfig::getAlignMinZ()
+    {
+        string key="align_min_z";
+        return mCfg.getFloat(key,0.04);
+    }
+    float DeviceDefaultConfig::getAlignMinAngle()
+    {
+        string key="align_min_angle";
+        return mCfg.getFloat(key,0.036);
+    }
+	int  DeviceDefaultConfig::getImuFilterOffsetCycleCount()
+    {
+        string key="filter_offset_cycle_count";
+        return mCfg.getInt(key,64);
+    }
+	double DeviceDefaultConfig::getImuFilterOffsetThreshold()
+    {
+        string key="filter_offset_threshold";
+        return mCfg.getDouble(key,0.10);
+    }
+	int   DeviceDefaultConfig::getImuFilterLogCycleCount()
+    {
+        string key="filter_log_cycle_count";
+        return mCfg.getInt(key,5);
+    }
+	int   DeviceDefaultConfig::getTrackType()
+    {
+        string key="plt_track_type";
+        return mCfg.getInt(key,0);
+    }
+	float DeviceDefaultConfig::getBackupRollSpeed()
+    {
+        string key="backup_roll_speed";
+        return mCfg.getDouble(key,3.0);
+    }
+    float DeviceDefaultConfig::getTrackTypeBackupVx()
+    {
+        string key="track_type_backup_vx";
+        return mCfg.getDouble(key, 0.05);
+    }
+    float DeviceDefaultConfig::getTrackTypeBackupVy()
+    {
+        string key="track_type_backup_vy";
+        return mCfg.getDouble(key, -0.1);
+    }
+    float DeviceDefaultConfig::getTrackTypeBackupWz()
+    {
+        string key="track_type_backup_wz";
+        return mCfg.getDouble(key, -2.5);
+    }
+    float DeviceDefaultConfig::getTrackTypeSwingRatio()
+    {
+        string key="track_type_swing_ratio";
+        return mCfg.getDouble(key, -2.5);
+    }
+    int DeviceDefaultConfig::getTrackTypeTryCount()
+    {
+        string key="track_type_backup_try_count";
+        return mCfg.getInt(key, 15);
+    }
+	float DeviceDefaultConfig::getTrackTypeBackupRollMinSpeed()
+    {
+        string key="track_type_backup_roll_min_speed";
+        return mCfg.getDouble(key,2.5);
+    }
+	float DeviceDefaultConfig::getTrackTypeBackupRollSpeed()
+    {
+        string key="track_type_backup_roll_speed";
+        return mCfg.getDouble(key,3.0);
+    }
+	float DeviceDefaultConfig::getTrackTypeBackupRollAngle()
+    {
+        string key="track_type_backup_roll_angle";
+        return mCfg.getDouble(key,175.0);
+    }
+	float DeviceDefaultConfig::getBackupMoveDist()
+    {
+        string key="backup_move_dist";
+        return mCfg.getFloat(key,0.05);
+    }
+	float DeviceDefaultConfig::getBackupMaxRollSpeed()
+    {
+        string key="backup_max_roll_speed";
+        return mCfg.getFloat(key,1.34);
+    }
+	float DeviceDefaultConfig::getBackupMaxShiftSpeed()
+    {
+        string key="backup_max_shift_speed";
+        return mCfg.getFloat(key,0.062);
+    }
+    float DeviceDefaultConfig::getAngleRatio()
+    {
+        string key="angle_ratio";
+        return mCfg.getFloat(key, 2.5);
+    }
+    float DeviceDefaultConfig::getTrackTypeMoveForwardRatio()
+    {
+        string key="track_type_move_forward_ratio";
+        return mCfg.getFloat(key, 1.3);
+    }
+    float DeviceDefaultConfig::getTrackTypeMoveBackwardRatio()
+    {
+        string key="track_type_move_backward_ratio";
+        return mCfg.getFloat(key, 2.5);
+    }
+    float DeviceDefaultConfig::getTrackTypeGyroxClimbingThres()
+    {
+        string key="track_type_gyrox_climbing_thres";
+        return mCfg.getFloat(key, 1.2);
+    }
+    float DeviceDefaultConfig::getTrackTypeFloorRollFactor()
+    {
+        string key="track_type_floor_roll_factor";
+        return mCfg.getFloat(key, 2.0);
+    }
+
+        // For tuning
+    float DeviceDefaultConfig::getRollExKp()
+    {
+        string key="rollEx_kp";
+        return mCfg.getFloat(key, 1.0);
+    }
+    float DeviceDefaultConfig::getRollExKi()
+    {
+        string key="rollEx_ki";
+        return mCfg.getFloat(key, 1.0);
+    }
+    float DeviceDefaultConfig::getRollExKd()
+    {
+        string key="rollEx_kd";
+        return mCfg.getFloat(key, 1.0);
+    }
+    float DeviceDefaultConfig::getRollExMaxInitialSpeed()
+    {
+        string key="rollEx_max_initial_speed";
+        return mCfg.getFloat(key, 3.5);
+    }
 }

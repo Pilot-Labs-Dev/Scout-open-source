@@ -213,9 +213,15 @@ const Frame* EncoderH264MPP::encode_frame()
 
     RK_U8 *ptr  = (RK_U8*)mpp_packet_get_pos(packet);
     size_t len  = mpp_packet_get_length(packet);
+    if (len<=0 || !ptr){
+        mpp_err("mpp_packet_get_length failed: %d\n", len);
+    }
 
     mMpp->pkt_eos = mpp_packet_get_eos(packet);
-    mpp_packet_deinit(&packet);
+    ret = mpp_packet_deinit(&packet);
+    if (ret){
+        mpp_err("mpp_packet_deinit failed: %d\n", ret);
+    }
 
     //mpp_log("encoded frame %d size %d\n", mMpp->frame_count, len);
     mMpp->stream_size += len;
@@ -333,7 +339,7 @@ MPP_RET EncoderH264MPP::mpp_setup(MpiEncData *p, int fps, int quality)
         break;
     case 2: //high
         quality = 16;
-        break;    
+        break;
     default:
         quality = 32;
         break;
@@ -454,7 +460,8 @@ MPP_RET EncoderH264MPP::mpp_setup(MpiEncData *p, int fps, int quality)
     }
 
     /* optional */
-    p->sei_mode = MPP_ENC_SEI_MODE_ONE_FRAME;
+    //p->sei_mode = MPP_ENC_SEI_MODE_ONE_FRAME;
+    p->sei_mode = MPP_ENC_SEI_MODE_DISABLE;
     ret = mpi->control(ctx, MPP_ENC_SET_SEI_CFG, &p->sei_mode);
     if (ret) {
         mpp_err("mpi control enc set sei cfg failed ret %d\n", ret);

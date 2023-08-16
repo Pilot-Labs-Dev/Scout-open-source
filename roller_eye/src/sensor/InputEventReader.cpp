@@ -61,9 +61,14 @@ ssize_t InputEventCircularReader::fill(int fd)
         }
 
         numEventsRead = nread / sizeof(input_event);
+        //dumpEvents(mHead, numEventsRead);
+        //PLOG_INFO(INPUT_READER_TAG,"nread = %d, numEventsRead = %d.", (int)nread, (int)numEventsRead);
         if (numEventsRead) {
 
             input_event *event = (input_event*)mHead;
+            //dumpEvents(event, numEventsRead);
+            // PLOG_ERROR(INPUT_READER_TAG,"InputEventCircularReader::fill type=%d, code=%d, value=%d", event->type,
+            //     event->code, event->value);
 
             mHead += numEventsRead;
             mFreeSpace -= numEventsRead;

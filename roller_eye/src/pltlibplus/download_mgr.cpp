@@ -50,7 +50,8 @@ namespace roller_eye{
          mTimeout=30;
      }
     int DownloadSession::updateTimeout()
-    {  
+    {
+        //PLOG_INFO(DL_TAG,"update timeout=%d\n",(int)mTimeout);
         if(mHandle==NULL){
             return -1;
         }

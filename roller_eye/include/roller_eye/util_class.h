@@ -25,7 +25,7 @@ namespace roller_eye
     void saveCalibration(const string &file,double *calib,int cnt);
 
     bool listDir(const string& path,vector<string>& files,bool excludeDir=true);
-    
+
     bool detectProcessIsExited(string processName);
 
     void stopProgramming();
@@ -33,11 +33,8 @@ namespace roller_eye
     bool getFreeSpace(string dirName, unsigned long long *free);
 
     string runCmdAndGetResult(string cmdStr);
-    int api_get_thread_policy (pthread_attr_t *attr);
-    void api_show_thread_priority (pthread_attr_t *attr,int policy);
-    int api_get_thread_priority (pthread_attr_t *attr);
-    int api_set_thread_priority (pthread_attr_t *attr, int priority);
-    void api_set_thread_policy (pthread_attr_t *attr,int policy);
+
+    int getSignal();
 } // namespace roller_eye
 
 #endif

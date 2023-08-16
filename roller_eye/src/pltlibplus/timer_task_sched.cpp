@@ -127,6 +127,23 @@ namespace roller_eye{
         return -1;
     }
 
+    int TimerTaskScheduler::delTask(string& name)
+    {
+        int ret = -1;
+        for(auto it=mTask.begin();it!=mTask.end();){
+            if((*it)->name==name){
+                string path=mRootPath+to_string((*it)->id);
+                if((ret=remove(path.c_str()))!=0){
+                    PLOG_ERROR(TIMER_TASK_TAG,"delete file [%s] fail",path.c_str());
+                }
+                it = mTask.erase(it);
+                ret = 0;
+            }else{
+                it++;
+            }
+        }
+        return ret;
+    }
     TimerTaskPtr TimerTaskScheduler::findTask(int id)
     {
         for(auto it=mTask.begin();it!=mTask.end();++it){
@@ -168,6 +185,7 @@ namespace roller_eye{
         tn=getDaySec(&t);
         delay=SECOND_PER_DAY-tn;
 
+        PLOG_INFO(TIMER_TASK_TAG,"t.tm_year=%d", t.tm_year);
         for(auto& task:mTask){
             if(!task->active){
                 PLOG_INFO(TIMER_TASK_TAG,"task[%d] inactive",task->id);
@@ -175,6 +193,8 @@ namespace roller_eye{
             }
             tt=getDaySec(&task->startTime);
             diff=tt-tn;
+            PLOG_INFO(TIMER_TASK_TAG,"[%d] task->startTime.tm_year=%d diff:%d delay:%d %d %d %d %d",
+                                        task->id, task->startTime.tm_year, diff, delay, task->schedued, task->scheduleTime.tm_mday, t.tm_mday,task->repeatType);
 
             if(task->schedued&&task->repeatType==TIMER_TASK_REPEAT_ONCE){
                 PLOG_WARN(TIMER_TASK_TAG,"bug found: repeat once,this task need to be deleted");
@@ -199,6 +219,7 @@ namespace roller_eye{
             switch(task->repeatType){
                 case TIMER_TASK_REPEAT_ONCE:
                     if(!sameDay(&t,&task->startTime)){
+                        PLOG_INFO(TIMER_TASK_TAG,"not same day");
                         continue;
                     }
                     break;
@@ -332,6 +353,8 @@ gen:
      }
      bool TimerTaskScheduler::sameDay(struct tm *l,struct tm* r)
      {
+        PLOG_INFO(TIMER_TASK_TAG,"task %d %d %d %d %d %d", 
+             l->tm_year,r->tm_year, l->tm_mon,r->tm_mon,l->tm_mday,r->tm_mday);
          return (l->tm_year==r->tm_year && l->tm_mon==r->tm_mon && l->tm_mday==r->tm_mday);
      }
 }

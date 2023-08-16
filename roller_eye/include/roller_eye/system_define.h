@@ -8,11 +8,11 @@
 
 #define ROLLER_EYE_SOCKPROXY_BASE  "/opt/sockproxy/"
 
-#define ROLLER_EYE_FILE_HOME_PATH   "/var/roller_eye/"  //if modify this path,search "/var/roller_eye" to confirm 
+#define ROLLER_EYE_FILE_HOME_PATH   "/var/roller_eye/"  //if modify this path,search "/var/roller_eye" to confirm
 #define ROLLER_EYE_DINAMIC_FILE_HOME_PATH  "/userdata/roller_eye/"
 
 
-#define ROLLER_EYE_CONFIG_BASE  ROLLER_EYE_FILE_HOME_PATH"/config/"
+#define ROLLER_EYE_CONFIG_BASE  ROLLER_EYE_FILE_HOME_PATH"config/"
 #define ROLLER_EYE_SN_LENGTH        12
 #define ROLLER_EYE_KEY_LENGTH        12
 #define ROLLER_EYE_HWVER_LENGTH        10
@@ -30,10 +30,10 @@
 
 #define TIMER_TASK_PATH                                 ROLLER_EYE_DINAMIC_FILE_HOME_PATH"/timer_task/"
 
-#define OTA_ROOT_PATH                                     ROLLER_EYE_DINAMIC_FILE_HOME_PATH"/ota/" 
+#define OTA_ROOT_PATH                                     ROLLER_EYE_DINAMIC_FILE_HOME_PATH"/ota/"
 #define OTA_DL_CACHE                                 OTA_ROOT_PATH"/dl/"
 
-#define LOG_LEVEL_RELEASE_DEFAULT    ros::console::levels::Info 
+#define LOG_LEVEL_RELEASE_DEFAULT    ros::console::levels::Info
 #define LOG_LEVEL_DEBUG_DEFAULT       ros::console::levels::Debug
 #ifdef NDEBUG
 #define APP_NODE_DEBUG_LEVEL                   LOG_LEVEL_RELEASE_DEFAULT
@@ -67,10 +67,7 @@
 #define PRO_TEST_NODE_DEBUG_LEVEL                 LOG_LEVEL_DEBUG_DEFAULT
 #endif
 
-#define SLAM_USE_KERNEL_STAMP
-//#define SLAM_PRINTF_TIME_DIFF
-
-//#define SENSOR_IMU_USE_CALIBRA
+#define SENSOR_IMU_USE_CALIBRA
 
 #define TIMER_TASK_TYPE_PATROL                      "patrol"
 
@@ -99,12 +96,14 @@ typedef enum WIFI_OP_TYPE{
 #define ALIGN_IMG_WIDTH                         1280
 #define ALIGN_IMG_HEIGHT                        720
 
-#define WIFI_CONFIG_START       0          
-#define WIFI_CONFIG_SUCCESS  1   
-#define WIFI_CONFIG_FAILURE    2  
-#define WIFI_CONFIG_CANCEL    3  
+#define WIFI_CONFIG_NONE       -1
+#define WIFI_CONFIG_START       0
+#define WIFI_CONFIG_SUCCESS  1
+#define WIFI_CONFIG_FAILURE    2
+#define WIFI_CONFIG_CANCEL    3
 
-#define LOW_BATTERY_PER            20
+#define LOW_BATTERY_PER             25
+#define CRITICAL_BATTERY_PER        10
 
 #define MAX_VALID_TOF_DIST       2
 #define TOF_AVG_COUNT                 2

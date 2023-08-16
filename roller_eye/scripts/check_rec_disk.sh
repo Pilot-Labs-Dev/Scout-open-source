@@ -26,7 +26,11 @@ function del_oldest_item()
 
     #"2019-11-25-14-48-59_LR2D6C3In32lVXwR_RETe8yTf68h0cjMb-14988.mp4"
     if [[ $oldest_created =~ .mp4$ ]];then
+        echo "oldest: $oldest_created"
         tmp=${oldest_created#*_}
+        jid=${tmp#*_}
+        jid=${jid%-*}
+        jid=${jid%.*}
         tmp=${tmp%_*}
         echo "mp4 case: $tmp"
     #"2019-11-23-15-29-11_k9iX1YeaV6R4fA1v-1.jpg"
@@ -41,7 +45,13 @@ function del_oldest_item()
     else
         srv_name=$ros_ns"/RecorderAgentNode/record_delete_file"
     fi
-    rosservice call $srv_name $tmp
+
+    res=$(rosservice call $srv_name $tmp)
+    
+    if [ "$res" != "status: 0" ]; then
+       echo "not del include $jid files"
+       rm *$jid*
+    fi
 }
 
 function get_root_available_size()

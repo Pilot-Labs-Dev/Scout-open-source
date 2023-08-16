@@ -93,7 +93,7 @@ void RtmpPub::loadCacheLoop()
          stopLoop();
          return;
      }
-     
+
     uint64_t preStamp=0;
     uint64_t preMono=0;
     bool firstFrame=true;
@@ -107,7 +107,7 @@ void RtmpPub::loadCacheLoop()
         save.data = cache.buff;
         save.seq = mSeq++;
         save.stamp = cache.stamp;
-    
+
         if(cache.type==CACHE_VIDEO_I_BUFF||cache.type==CACHE_VIDEO_P_BUFF){
             save.par3=(cache.type==CACHE_VIDEO_I_BUFF?1:0);
             save.type=RTMP_FRAME_VIDEO_TYPE;
@@ -116,12 +116,13 @@ void RtmpPub::loadCacheLoop()
         }else{
             plt_assert(false);
         }
-      
+
         if(firstFrame){
             firstFrame=false;
         }else{
             timeoffset=(int64_t)cache.stamp-(int64_t)preStamp-((int64_t)plt_get_mono_time_ms()-(int64_t)preMono);
             if(timeoffset>0){
+                //PLOG_DEBUG(RTMP_TAG,"sleep %d ms",(int)timeoffset);
                 usleep(timeoffset*1000);
             }
         }
@@ -214,7 +215,7 @@ void RtmpPub::mainLoop()
                 lastStamp = outframe.stamp;
             }
 
-            if(mDuration>0&&lastStamp>=0){               
+            if(mDuration>0&&lastStamp>=0){
                 int dur=(int64_t)outframe.stamp-lastStamp;
                 if(dur>0){
                     if((mDuration-=dur)<=0){
@@ -226,7 +227,7 @@ void RtmpPub::mainLoop()
             lastStamp=(int64_t)outframe.stamp;
         }
         if ((!mIOError||(mLive&&!mCache))/*&&audioReady*/) {//if write to cache and occur io error,stop send data to server,because later will resend cache data to server.
-            if(outframe.type==RTMP_FRAME_VIDEO_TYPE){    
+            if(outframe.type==RTMP_FRAME_VIDEO_TYPE){
                 videoWriteFrame(outframe, sent_spspps);
                 //frames++;
             }else{
@@ -382,6 +383,7 @@ int RtmpPub::audioWriteFrame(frame_t& frame)
     // 1 = Stereo sound
     char sound_type = 0;
 
+    PLOG_INFO(RTMP_TAG,"audioWriteFrame %x\n",m_rtmp);
     int ret = 0;
     if (m_rtmp!=nullptr && (ret = srs_audio_write_raw_frame(m_rtmp,
         sound_format, sound_rate, sound_size, sound_type,

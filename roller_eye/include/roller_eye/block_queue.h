@@ -52,8 +52,8 @@ public:
         {
             mCondR.wait(lock);
         }
-     
-        t = mQueue.front(); 
+
+        t = mQueue.front();
         mQueue.pop();
 
         if(mMax>0 && (int)mQueue.size()==mMax-1)
@@ -70,8 +70,8 @@ public:
             pset_errno(PEEMPTY);
             return -1;
         }
-     
-        t = mQueue.front(); 
+
+        t = mQueue.front();
         mQueue.pop();
 
         if(mMax>0 && (int)mQueue.size()==mMax-1)

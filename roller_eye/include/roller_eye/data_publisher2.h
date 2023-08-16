@@ -26,9 +26,10 @@ public:
     mData(data),
     mCmd(100),
     mThread([this,freq](){
-        loop(freq);        
+        loop(freq);
     })
     {
+        printf("DataPublisher2 construct pid is %d name:%s\n", getpid(), name.c_str());
     }
     ~DataPublisher2()
     {
@@ -44,8 +45,11 @@ public:
 private:
     void loop(double freq)
     {
+        pthread_t tid;
+        tid =  syscall(SYS_gettid);
+        printf("DataPublisher2 pid is %u \n", (unsigned int)tid);
         int cmd;
-        bool quit=false,running=false; 
+        bool quit=false,running=false;
         string name = mPub.getName();
         while(!quit){
             if(running){
@@ -59,16 +63,16 @@ private:
                         quit=true;
                     }
                 }else{
-                    T data;            
+                    T data;
                     if(mData->setData(data)==0){
-                        mPub.publish(data);                    
+                        mPub.publish(data);
                     }else{
                         if(freq<MIN_FREQ){
-                            usleep(20000);                            
+                            usleep(20000);
                         }
                     }
-                    if(freq>MIN_FREQ){                    
-                        mRate.sleep();                    
+                    if(freq>MIN_FREQ){
+                        mRate.sleep();
                     }
                 }
             }else{
@@ -83,7 +87,7 @@ private:
                     }
                 }
             }
-        } 
+        }
     }
     void sendCmd(int cmd)
     {

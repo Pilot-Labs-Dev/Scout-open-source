@@ -16,11 +16,15 @@ rk_wifi_init /dev/ttyS0
 # Generate the SSH keys if non-existent
 ssh-keygen -A
 
+#enable adb
+service adbd.sh start
+
 #start pulse audio
 amixer sset 'Playback Path' 'SPK'
 amixer sset 'Capture MIC Path' 'Main Mic'
 pulseaudio --system --disallow-exit --daemonize
 
+nohup /bin/ota_daemon.sh &
 nohup /usr/local/bin/start.sh &
 
 /sbin/insmod /usr/lib/aarch64-linux-gnu/motorbl.ko

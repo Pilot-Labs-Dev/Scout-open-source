@@ -19,11 +19,14 @@
 #include "roller_eye/util_class.h"
 #include "roller_eye/wifi_config_info.h"
 #include "roller_eye/plt_config.h"
-#include "roller_eye/version_info.h"
+#include "roller_eye/led_all_on.h"
+#include "roller_eye/nav_low_bat.h"
 #include "zlog.h"
 
 using namespace std;
 using namespace roller_eye;
+
+#define USE_BATTERY_STATUS_WATCHDOG		0		///<<< 1
 
 #define UI_NODE_TAG "UI"
 //#define WIFI_RETRY_TIME             30
@@ -111,7 +114,7 @@ private:
 
             if(FD_ISSET(mResetFD,&fds)){
               processResetKey();
-            }  
+            }
         }
     }
     void processPowerKey()
@@ -129,7 +132,7 @@ private:
             int t=plt_timeval_diff_ms(&ev.time,&mLastPowerTime);
             if(t>=POWER_KEY_LONG_PRESS_TIME){
                 system_event evt;
-                evt.request.event = static_cast<int32_t> (SYSEVT_POWEROFF);                
+                evt.request.event = static_cast<int32_t> (SYSEVT_POWEROFF);
                 mSysEvtClient.call(evt);
                 system(CMD_PREFIX"poweroff");
             }else{
@@ -140,14 +143,15 @@ private:
     void processWiFiKey()
     {
         struct input_event ev;
+        PLOG_DEBUG(UI_NODE_TAG,"call processWiFiKey");
         if(read(mWiFiFD,&ev,sizeof(ev))!=sizeof(ev)){
             return;
         }
-
-         if(ev.code!=217 || ev.type==0){        
+        PLOG_DEBUG(UI_NODE_TAG,"processWiFiKey type:%d code:%d value:%d",ev.type, ev.code, ev.value);
+         if(ev.code!=217 || ev.type==0){
             return;
         }
-        static int nCnt = 1; 
+        static int nCnt = 1;
         static bool bPress = false;
         if(ev.value==1){
             bPress = true;
@@ -155,35 +159,41 @@ private:
         }else if (bPress){
             bPress = false;
              int t=plt_timeval_diff_ms(&ev.time,&mLastWifiTime);
-             if(t>=WIFI_KEY_LONG_PRESS_TIME){ 
+             if(t>=WIFI_KEY_LONG_PRESS_TIME){
+                PLOG_DEBUG(UI_NODE_TAG,"wifi long press time,%d ms",t);
                 int ret;
                 std_msgs::Int32 event;
-                ROS_INFO("switch wifi %d",nCnt++);
+                // ROS_INFO("switch wifi %d",nCnt++);
                 if(s_wifi_mode==status::WIFI_MODE_STA){
                     wifi_config_info info;
                     info.cmd = WIFI_CONFIG_CANCEL;
                     mConfigNetPub.publish(info);
 
+                    // event.data = SYSEVT_AP2STA;
+                    // mSysEvtPub.publish(event);
+
                     ret=switchWifiMode(status::WIFI_MODE_AP,mSwitch, 1);
-                    if (0==ret){             
-                        ROS_INFO("processWiFiKey addWiFi succ");
+                    if (0==ret){
+                        // ROS_INFO("processWiFiKey addWiFi succ");
                         event.data = SYSEVT_AP2STA;
                         mSysEvtPub.publish(event);
                     }
                 }else{
-
+                    // event.data = SYSEVT_STA2AP;
+                    // mSysEvtPub.publish(event);
                     vector<string> wifi;
                     PltConfig::getInstance()->getWiFis(wifi);
                     if (wifi.empty()){
                         return;
                     }
-
-                    ret=switchWifiMode(status::WIFI_MODE_STA,mSwitch, 2);         
+                    //sw.request.kill     = 2;
+                    //system(CMD_PREFIX"killall wifi_start_ap.sh");
+                    ret=switchWifiMode(status::WIFI_MODE_STA,mSwitch, 2);
                     if (0==ret){
-                        ROS_INFO("switch wifi sta succ");
+                        // ROS_INFO("switch wifi sta succ");
                         event.data = SYSEVT_STA2AP;
                         mSysEvtPub.publish(event);
-                    }      
+                    }
                 }
 
                 if(ret<0){
@@ -193,7 +203,7 @@ private:
                 PLOG_DEBUG(UI_NODE_TAG,"wifi short press time,%d ms",t);
              }
         }
-        
+
     }
 
     void doReset(){
@@ -202,13 +212,17 @@ private:
       mSysEvtPub.publish(event);
 
       if(!detectProcessIsExited("scout_reset2.sh")){
+        /************start add by ltl 2021-07-05***************/
+        //update sn from vendor storage
         string sn;
         PltConfig::getInstance()->getSN(sn);
         if (sn.length() > 10){
             PltConfig::getInstance()->updateSN(sn);
         }
+        /************end add by ltl 2021-07-05***************/
+
         string cmd = "/usr/local/bin/scout_reset.sh &";
-        system(cmd.c_str()); 
+        system(cmd.c_str());
       }
     }
 
@@ -221,7 +235,7 @@ private:
       if(ev.type == 0){
         return;
       }
-      
+
       if(ev.value == 1){
         mLastResetTime = ev.time;
       }
@@ -236,7 +250,7 @@ private:
         }
       }
     }
-    
+
     thread mLoop;
     ros::ServiceClient mSwitch;
     ros:: ServiceClient mSysEvtClient;
@@ -267,7 +281,6 @@ public:
     LEDProcess(ros::NodeHandle &n):mDisconnectCount(0),mWrongKey(false),mBling(false)
     {
         mWiFiSub=n.subscribe("WiFiNode/status", 10, &LEDProcess::wifiStatusCallback,this);
-        mSwitch=n.serviceClient<wifi_switch_mode>("WiFiNode/switch_wifi");
         mWiFiDeamon=n.createTimer(ros::Duration(1.0),&LEDProcess::timerCallback,this);
         mWiFiDeamon.stop();
         wifiLEDStop();
@@ -300,11 +313,12 @@ private:
         mWiFiMode=s->status[0];
         mWiFiStatus=s->status[1];
         s_wifi_mode=mWiFiMode;
+        PLOG_INFO(UI_NODE_TAG,"wifi status:mode=%d,status=%d\n",mWiFiMode,mWiFiStatus);
         switch (mWiFiStatus)
         {
         case status::WIFI_STATUS_STOP:
             wifiLEDStop();
-            mWiFiDeamon.start();
+            //mWiFiDeamon.start();
             break;
         case status::WIFI_STATUS_CONNECTING:
             mWrongKey=false;
@@ -324,18 +338,19 @@ private:
     }
     void timerCallback(const ros::TimerEvent& evt)
     {
-        if(mWiFiStatus!=status::WIFI_STATUS_STOP){
-            mWiFiDeamon.stop();
-            mDisconnectCount=0;
-        }else{
-            if(++mDisconnectCount>WIFI_RETRY_TIME){
-                mDisconnectCount=0;
-                mWiFiDeamon.stop();
-                /*if(!mWrongKey)*/{
-                    switchWifiMode(mWiFiMode,mSwitch, 0);
-                }
-            }
-        }
+        // PLOG_DEBUG(UI_NODE_TAG,"WiFi Deamon timer,counter=%d",mDisconnectCount);
+        // if(mWiFiStatus!=status::WIFI_STATUS_STOP){
+        //     mWiFiDeamon.stop();
+        //     mDisconnectCount=0;
+        // }else{
+        //     if(++mDisconnectCount>WIFI_RETRY_TIME){
+        //         mDisconnectCount=0;
+        //         mWiFiDeamon.stop();
+        //         /*if(!mWrongKey)*/{
+        //             switchWifiMode(mWiFiMode,mSwitch, 0);
+        //         }
+        //     }
+        // }
     }
     void stopBling()
     {
@@ -355,7 +370,7 @@ private:
                 while(mBling){
                     wifiLEDControl(id,flag?WIFI_LED_ON:WIFI_LED_OFF);
                     flag=!flag;
-                    
+
                     gettimeofday(&tm, nullptr);
                     uint64_t start = tm.tv_sec * 1000000 + tm.tv_usec;
                     uint64_t now = start;
@@ -376,6 +391,7 @@ private:
         static const char* flags[]={"1", "0"};
         char buff[16];
 
+        PLOG_ERROR(UI_NODE_TAG,"wifiLEDControl %d\n",id);
         snprintf(buff,sizeof(buff),"%s%s\n",ids[id],flags[flag]);
         ofstream of(LED_PATH);
         if(!of){
@@ -385,7 +401,6 @@ private:
         of<<buff<<std::flush;
     }
     ros::Subscriber mWiFiSub;
-    ros::ServiceClient mSwitch;
     ros::Timer mWiFiDeamon;
     int mDisconnectCount;
     int mWiFiMode;
@@ -400,12 +415,20 @@ public:
     PowerStatusProcess(ros::NodeHandle &n):
     mBlingStage(0),
     mCurrentPercentage(100),
-    mBistStart(0)
-    {       
+    mBistStart(0),
+    mPrevPercentage(100)
+    {
+        mMinBat = LOW_BATTERY_PER;
+        PltConfig::getInstance()->getMinBat(mMinBat);
+        mPrevPercentage = mPrevPercentage>mMinBat?mPrevPercentage:(mMinBat+1);
+
+        mLedSrv = n.advertiseService("/led_all_on",&PowerStatusProcess::ledOn,this);
         mBatteryStatus=n.subscribe("SensorNode/simple_battery_status", 10, &PowerStatusProcess::batteryStatusCallback,this);
-		//rmwei
+		mNavLowBatClient = n.serviceClient<nav_low_bat>("/nav_low_bat");
+
+        //rmwei
         if (!mSysEventSub){
-            mSysEventSub = n.subscribe("/system_event", 10,  
+            mSysEventSub = n.subscribe("/system_event", 10,
 						&PowerStatusProcess::SysEventCallback, this);
         }
         mTimer=n.createTimer(ros::Duration(0.5),&PowerStatusProcess::timerCallback,this);
@@ -413,7 +436,7 @@ public:
     }
 private:
     void SysEventCallback(const std_msgs::Int32::ConstPtr& msg)
-    {         
+    {
         SYSEVT_T evt = static_cast<SYSEVT_T>(msg->data);
 
         if(SYSEVT_BIST_START == evt){
@@ -421,12 +444,13 @@ private:
 			mBistStart = 1;
         }
     }
-    
+
     void setPowerPercentage(int per)
     {
+        //PLOG_DEBUG(UI_NODE_TAG,"set power percentage %d\n",per);
 
         int status[4]={0};
-        
+
         if(per>0){
             status[0]=1;
         }
@@ -457,20 +481,72 @@ private:
             int minBat = LOW_BATTERY_PER/4;
              PltConfig::getInstance()->getMinBatForPowerOff(minBat);
              if (s->status[1] <= minBat){  // low battery auto poweroff
-                system(CMD_PREFIX"poweroff"); 
-            }        
+                system(CMD_PREFIX"poweroff");
+            }
         }
+
+	#if USE_BATTERY_STATUS_WATCHDOG
+		wCnt = 0;
+		mTimer.start();
+    	if(s->status[0]==status::BATTERY_CHARGING)
+			mCharging = true;
+		else
+			mCharging = false;
+	#endif
+
+        static bool bNotify = false;
+        PLOG_INFO(UI_NODE_TAG,"s->status[2]: %d bNotify:%d mPrevPercentage:%d mMinBat:%d mCurrentPercentage:%d\n",
+                                 s->status[2], bNotify, mPrevPercentage, mMinBat, mCurrentPercentage);
+		if (s->status[2]){
+            bNotify = false;
+			mPrevPercentage = 100>mMinBat ?100:(mMinBat+1);
+		}else{
+            if (!bNotify &&
+                   mPrevPercentage>mMinBat  &&
+                   mCurrentPercentage<=mMinBat){    ///<<< Fix Backup not start while batt level down to mMinBat level
+                nav_low_bat nlb;
+                PLOG_INFO(UI_NODE_TAG, "call battery low!");
+                bNotify = mNavLowBatClient.call(nlb);
+                if (bNotify){
+        	        mPrevPercentage = mCurrentPercentage;
+                }
+            }else{
+        	    mPrevPercentage = mCurrentPercentage;
+            }
+		}
     }
     void timerCallback(const ros::TimerEvent& evt)
     {
+#if USE_BATTERY_STATUS_WATCHDOG
+		 wCnt ++;
+		 if(0 == (wCnt% 360 ))  ///<<< no update for  more than 3 minutes
+		 {
+			///if(mBatteryStatus) mBatteryStatus.shutdown();
+			PLOG_FATAL(UI_NODE_TAG,"Restart SensorNode due to no battery status update (cnt = %d)!!! ",wCnt);
+			system("sudo killall sensors_node");	///<<< try to restart SensorNode
+			///sleep(2);
+			///mBatteryStatus=n.subscribe("SensorNode/simple_battery_status", 10, &PowerStatusProcess::batteryStatusCallback,this);
+		 }
+		 if (false == mCharging)
+		 	return;
+#endif
         setPowerPercentage(mBlingStage);
         if(mBlingStage>mCurrentPercentage){
             mBlingStage=0;
         }else{
              mBlingStage+=25;
         }
-    }    
+    }
 
+    bool ledOn(led_all_onRequest& req,led_all_onResponse& res)
+    {
+        for(int i=0;i<4;i++){
+            set_power_led_status(i,1);
+        }
+        wifiLEDControl(WIFI_LED_MODE_AP, WIFI_LED_ON);
+        wifiLEDControl(WIFI_LED_MODE_STA, WIFI_LED_ON);
+        return true;
+    }
     void wifiLEDControl(int id,int flag)
     {
         static const char* ids[]={"gpio00_","gpio01_"};
@@ -478,6 +554,7 @@ private:
         static const char* flags[]={"1", "0"};
         char buff[16];
 
+        PLOG_ERROR(UI_NODE_TAG,"wifiLEDControl %d\n",id);
         snprintf(buff,sizeof(buff),"%s%s\n",ids[id],flags[flag]);
         ofstream of(LED_PATH);
         if(!of){
@@ -489,24 +566,29 @@ private:
     const string LED_PATH="/proc/driver/gpioctl";
     ros::Subscriber mBatteryStatus;
     ros::Subscriber mSysEventSub;
+    ros::ServiceClient  mNavLowBatClient;
     ros::Timer mTimer;
     ros::ServiceServer mLedSrv;
     int mBlingStage;
     int mCurrentPercentage;
     int mBistStart = 0;
+#if USE_BATTERY_STATUS_WATCHDOG
+    int wCnt = 0;
+	bool mCharging = false;
+#endif
+    int mMinBat;
+    int mPrevPercentage;
 };
 
 int main(int argc, char **argv)
 {
-  InitDZLog dzLog;
-  system("update_tool");
+    InitDZLog dzLog;
   ros::init(argc, argv, "UINode");
   ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,UI_NODE_DEBUG_LEVEL);
   ros::NodeHandle n("");
   KeyProcess key(n);
   LEDProcess led(n);
   PowerStatusProcess power(n);
-  PltConfig::getInstance()->updateVersion(SW_VERSION);
   ros::spin();
   return 0;
 }

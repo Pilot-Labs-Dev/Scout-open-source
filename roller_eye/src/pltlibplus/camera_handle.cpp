@@ -81,11 +81,9 @@ void video_stream_cb(int evt,void *priv)
 void CameraHandle::newCameraHandle(int w, int h, int frm_rate_num, int frm_rate_den,uint32_t fmt, int h264Quality, int cameraLight)
 {
   if (!isNewParam(w, h, frm_rate_num, frm_rate_den,fmt,h264Quality, cameraLight)) {
-    ROS_INFO("param is not changed, do nothing.");
     return;
   }
-  ROS_INFO("%s >>> %d, %d, %f, 0x%x", __FUNCTION__, w, h, (float)frm_rate_den/frm_rate_num, fmt);
-  
+
   for (auto cb : m_parListeners) {
     cb(&m_param,false);
   }
@@ -171,7 +169,7 @@ CMHandle CameraHandle::camera_handle_create(CaputreParam *param)
     prm.sInfo.cameraLight = param->sInfo.cameraLight;
     prm.defaultCount=3;
     prm.buffCount=6;
-    
+
     prm.v4l2BuffCount=3;
     prm.devIdx=0;
 #ifndef APP_ARCH_X86
@@ -186,13 +184,13 @@ CMHandle CameraHandle::camera_handle_create(CaputreParam *param)
     m_camera = video_stream_create_camera(&prm);
   //}
 
-  video_stream_get_camera_param(m_camera, param);	
+  video_stream_get_camera_param(m_camera, param);
   return m_camera;
 }
 
 bool CameraHandle::isNewParam(int w, int h, int frm_rate_num, int frm_rate_den,uint32_t fmt, int h264Quality, int cameraLight)
 {
-  return m_param.sInfo.fInfo.width != w 
+  return m_param.sInfo.fInfo.width != w
     || m_param.sInfo.fInfo.height != h
     || m_param.sInfo.fInfo.fmt != fmt
     || m_param.sInfo.fpsDen != frm_rate_den

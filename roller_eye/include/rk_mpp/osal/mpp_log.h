@@ -108,8 +108,6 @@
 
 #define mpp_assert(cond) do {                                           \
     if (!(cond)) {                                                      \
-        mpp_err("Assertion %s failed at %s:%d\n",                       \
-               MPP_STRINGS(cond), __FUNCTION__, __LINE__);              \
         mpp_abort();                                                    \
     }                                                                   \
 } while (0)

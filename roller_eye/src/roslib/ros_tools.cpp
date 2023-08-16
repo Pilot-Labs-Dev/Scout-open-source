@@ -14,7 +14,7 @@ static void   string_callback(const std_msgs::String::ConstPtr& msg)
     //ROS_DEBUG("%s\n",msg->data.c_str());
 }
 ros::Subscriber motor_disable(ros::NodeHandle &n)
-{  
+{
     return n.subscribe("MotorNode/disable",2,string_callback);
 }
 void motor_enable(ros::Subscriber &sub)
@@ -22,7 +22,7 @@ void motor_enable(ros::Subscriber &sub)
     sub.shutdown();
 }
 ros::Subscriber motor_disable_adjust(ros::NodeHandle &n)
-{  
+{
     return n.subscribe("MotorNode/disable_adjust",2,string_callback);
 }
 void motor_enable_adjust(ros::Subscriber &sub)
@@ -139,7 +139,7 @@ int dump_ros_node_param(const char* rosPath,const char* filePath)
             case roller_eye::status::BACK_UP_SUCCESS:
             case roller_eye::status::BACK_UP_FAIL:
             case roller_eye::status::BACK_UP_INACTIVE:
-                ROS_INFO("backup exit status=%d",status->data);
+                // ROS_INFO("backup exit status=%d",status->data);
                 if(mBackingUp){
                     mBackingUp.shutdown();
                 }

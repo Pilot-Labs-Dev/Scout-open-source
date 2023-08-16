@@ -44,7 +44,7 @@ struct rec_request_t {
     std::string thumb_path; //for video
     bool isUnlimited;  //when request.count == 0
     uint32_t cntUnlimited;
-    uint32_t duration;   
+    uint32_t duration;        //add by ltl 2020-02-19
 };
 
 enum {

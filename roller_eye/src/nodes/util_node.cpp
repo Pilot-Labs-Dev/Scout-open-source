@@ -74,7 +74,7 @@ protected:
     virtual int update()=0;
     virtual int extract(json& param,json& data)=0;
     virtual void pack(json& data)=0;
- 
+
     PltConfig *mConfig;
 };
 class ParamMonitorProcessHandle:public ParamGroupJsonProcessHandle{
@@ -131,24 +131,33 @@ private:
 
 
 static bool algoRoll(roller_eye::algo_rollRequest &req, roller_eye::algo_rollResponse &resp){
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoRollEx, angle:%.2frad speed:%.2frad/s timeout:%dms error:%.3f", req.angle, req.rotatedSpeed, req.timeout, req.error);
   resp.ret = algoUtils->rollEx(req.angle, req.rotatedSpeed, req.timeout, req.error);
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoRollEx ret:%d", resp.ret);
   return true;
 }
 
 static bool algoMove(roller_eye::algo_moveRequest &req, roller_eye::algo_moveResponse &resp){
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoMove, xDistance:%.2fm yDistance:%.2fm speed:%.2fm/s", req.xDistance, req.yDistance, req.speed);
+
+  //resp.ret = algoUtils->move(req.xDistance, req.yDistance, req.speed);
   resp.ret = algoUtils->moveEx(req.xDistance, req.yDistance, req.speed);
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoMove ret:%d", resp.ret);
   return true;
 }
 
 static bool algoAction(roller_eye::algo_actionRequest &req, roller_eye::algo_actionResponse &resp){
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoMove, xSpeed:%.2fm/s ySpeed:%.2fm/s time:%dms rotatedSpeed:%.2frad/s", req.xSpeed, req.ySpeed, req.time, req.rotatedSpeed);
+
   resp.ret = algoUtils->action(req.xSpeed, req.ySpeed, req.rotatedSpeed, req.time);
+  PLOG_DEBUG(UTIL_NODE_TAG, "algoAction ret:%d", resp.ret);
   return true;
 }
 
 static bool checkAiSettingDataIsOk(json& setting, json& refinedSetting){
   MonitorParam targetParam;
   MonitorParam tempParam;
-  
+
   if(parse_monitor_param(setting, tempParam)<0){
     return false;
   }
@@ -205,6 +214,6 @@ int main(int argc, char **argv){
   ros::ServiceServer aiDetectSettingGetSrv = privateNh->advertiseService("ai_get_detect_setting", aiGetDetectSetting);
 
   ros::spin();
-  
+
   return 0;
 }

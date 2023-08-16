@@ -47,6 +47,7 @@ public:
     int addTask(TimerTaskPtr task);
     int modTask(TimerTaskPtr task);
     int delTask(int id);
+    int delTask(string& name);
     TimerTaskPtr findTask(int id);
 
     vector<TimerTaskPtr> getTasks(const string& type,int startId,int size);

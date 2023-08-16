@@ -1,0 +1,21 @@
+1.Introduction:
+  To support track model,there are two major concerns:
+1.1 Movement:
+  For the track model ,it's not able to move in x direction , thus we neet to turn to x direction, move and then turn back to y direction;
+1.2 Resistance:
+  Due to the track and to wheels, the resistance for move and rotation will increase, in the software we need to make the scout move or turn
+at higher speed than wheel models, therefore the minimum roll speed will be increasd to 2.0 ( origin is 1.0)
+2.Implementation:
+2.1 Model selection
+  To be compatible with origin wheel medel, a setting entry was add to select track model , the default behaviour is wheel model, when the track 
+setting was selected when the App connect to the scout, track model will be activated.
+2.2 Pathing and patrol
+  This part is generally the same as wheel model, besides you can move directly in x direction, and the minimum roll speed is set to 2.0
+2.3 BackingUp
+    When backingup started, home detection is the same, after home detected, behaviour will be different
+2.3.1 align to charge pile
+   The goal of align is to move the scout to the straight ahead of home, at proper distance, to get this, the track will move in several steps,
+in each step,the socut may turn twice and move twice
+2.3.2 connect to  charge pile
+   Due to the resisance of the track ,when do backup charge, the socut will more like to climb the pile, to fix to the charge point ,the scout may  
+nedd to move forware,backward,and back force for several times.

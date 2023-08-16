@@ -99,6 +99,7 @@ public:
     void madgwickAHRSupdateIMU(float gx, float gy, float gz,
                                float ax, float ay, float az,
                                float dt);
+    void getGravity(float& rx, float& ry, float& rz, float gravity = 9.80665);
 };
 
 #endif // IMU_FILTER_IMU_MADWICK_FILTER_H

@@ -5,12 +5,12 @@ namespace roller_eye
     {
         initAACDecoderWithSampleRate(16000, 1, 16);
     }
-    
+
     DecoderAAC::~DecoderAAC()
     {
         releaseAACDecoder();
     }
-    
+
     DecoderAAC* DecoderAAC::getInstance()
     {
         static DecoderAAC* inst=nullptr;
@@ -26,22 +26,22 @@ bool DecoderAAC::initAACDecoderWithSampleRate(int sampleRate, int channel, int b
     avformat_network_init();
     mAacCodec = avcodec_find_decoder(AV_CODEC_ID_AAC);
     av_init_packet(&mAacPacket);
-    
+
     if (mAacCodec != NULL) {
         mAacCodecCtx = avcodec_alloc_context3(mAacCodec);
- 
+
         mAacCodecCtx->codec_type = AVMEDIA_TYPE_AUDIO;
         mAacCodecCtx->sample_rate = sampleRate;
         mAacCodecCtx->channels = channel;
         //mAacCodecCtx->bit_rate = 256000;
-        mAacCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;       
-        
+        mAacCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
+
        mSampleRate = sampleRate;
        channel = channel;
-       bit = bit; 
+       bit = bit;
 
         if (avcodec_open2(mAacCodecCtx, mAacCodec, NULL) >= 0) {
-            //mAacFrame = av_frame_alloc();            
+            //mAacFrame = av_frame_alloc();
         }
     }
     return (bool)mAacFrame;
@@ -61,7 +61,7 @@ int DecoderAAC::AAC2PCM(uint8_t * data, int len, uint8_t * outBuf)
             return -1;
         }
         AVFrame *mAacFrame = nullptr;
-        mAacFrame = av_frame_alloc(); 
+        mAacFrame = av_frame_alloc();
         result = avcodec_receive_frame(mAacCodecCtx, mAacFrame);
         if ( 0 == result ) {
 #if 1
@@ -69,22 +69,22 @@ int DecoderAAC::AAC2PCM(uint8_t * data, int len, uint8_t * outBuf)
                                                 AV_CH_LAYOUT_MONO,
                                                 AV_SAMPLE_FMT_S16,
                                                 mSampleRate,
-                                                mAacCodecCtx->channel_layout, 
-                                                mAacCodecCtx->sample_fmt,                
+                                                mAacCodecCtx->channel_layout,
+                                                mAacCodecCtx->sample_fmt,
                                                 mAacCodecCtx->sample_rate,
                                                 0, NULL);
             swr_init(au_convert_ctx);
-            
+
             int out_linesize;
-            int out_buffer_size=av_samples_get_buffer_size(&out_linesize, 
+            int out_buffer_size=av_samples_get_buffer_size(&out_linesize,
                                                  mAacFrame->channels,
                                                  mAacFrame->nb_samples,
                                                  AV_SAMPLE_FMT_S16, 1);
             uint8_t *out_buffer=(uint8_t *)av_malloc(out_buffer_size);
-            swr_convert(au_convert_ctx, &out_buffer, out_linesize, 
+            swr_convert(au_convert_ctx, &out_buffer, out_linesize,
                     (const uint8_t **)mAacFrame->data , mAacFrame->nb_samples);
             swr_free(&au_convert_ctx);
-            au_convert_ctx = NULL; 
+            au_convert_ctx = NULL;
             memcpy(outBuf,  out_buffer,  out_linesize);
             av_free(out_buffer);
 
@@ -101,7 +101,7 @@ int DecoderAAC::AAC2PCM(uint8_t * data, int len, uint8_t * outBuf)
 }
 
 
-void DecoderAAC::releaseAACDecoder() 
+void DecoderAAC::releaseAACDecoder()
 {
     if(mAacCodecCtx) {
         avcodec_close(mAacCodecCtx);

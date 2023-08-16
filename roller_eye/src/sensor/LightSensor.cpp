@@ -43,6 +43,7 @@ LightSensor::LightSensor()
     int flags = 0;
     if (dev_fd > 0) {
         if (!ioctl(dev_fd, LIGHTSENSOR_IOCTL_GET_ENABLED, &flags)) {
+            PLOG_ERROR(GYRO_TAG,"LIGHTSENSOR_IOCTL_GET_ENABLED flags:%d\n", flags);
             if (flags) {
                 mEnabled = 1;
                 setInitialState();
@@ -108,6 +109,7 @@ int LightSensor::enable(int32_t, int en) {
         if(err!=0){
             PLOG_ERROR(GYRO_TAG,"LIGHTSENSOR_IOCTL_ENABLE failed (%s)", strerror(-err));
         }
+        PLOG_INFO(GYRO_TAG,"LightSensor::enable flags:%d\n", flags);
         if (!err) {
             mEnabled = en ? 1 : 0;
             if (en) {
@@ -129,7 +131,8 @@ bool LightSensor::hasPendingEvents() const {
 
 int LightSensor::readEvents(sensors_event_t* data, int count)
 {
-    if (count < 1){     
+    if (count < 1){
+        PLOG_ERROR(GYRO_TAG,"%s:%d", __FILE__,__LINE__);
         return -EINVAL;
     }
 
@@ -141,8 +144,8 @@ int LightSensor::readEvents(sensors_event_t* data, int count)
     }
 
     ssize_t n = mInputReader.fill(data_fd);
-
-    if (n < 0){     
+    //PLOG_ERROR(GYRO_TAG,"LightSensor: readEvents fill return %d",n);
+    if (n < 0){
         return n;
     }
 
@@ -153,6 +156,7 @@ int LightSensor::readEvents(sensors_event_t* data, int count)
         int type = event->type;
         if (type == EV_ABS) {
             if (event->code == EVENT_TYPE_LIGHT) {
+                //PLOG_ERROR(GYRO_TAG,"LightSensor: readEvents return %d",event->value );
                 if (event->value != -1) {
                     // FIXME: not sure why we're getting -1 sometimes
 					mPendingEvent.light = event->value; //indexToValue(event->value); //elvis modify
@@ -163,6 +167,7 @@ int LightSensor::readEvents(sensors_event_t* data, int count)
             if (mEnabled /*&& (mPendingEvent.light != mPreviousLight)*/) {
                 int ch0 = ((int)mPendingEvent.light >>16) & 0xFFFF;
                 int ch1 = (int)mPendingEvent.light & 0xFFFF;
+                //PLOG_ERROR(GYRO_TAG,"LightSensor: readEvents ch0=%d , ch1=%d", ch0, ch1);
                 *data++ = mPendingEvent;
                 count--;
                 numEventReceived++;

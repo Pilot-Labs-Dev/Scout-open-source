@@ -1,6 +1,6 @@
 PM=0
 roam_off=0
-roam_trigger=-65
-roam_delta=9
+roam_trigger=-62
+roam_delta=6
 roam_scan_period=8
 fullroamperiod=20

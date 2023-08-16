@@ -28,7 +28,7 @@ public:
     mData(data),
     mCmd(100),
     mThread([this,freq](){
-        loop(freq);        
+        loop(freq);
     })
     {
     }
@@ -46,8 +46,10 @@ public:
 private:
     void loop(double freq)
     {
+        pthread_t tid;
+        tid =  syscall(SYS_gettid);
         int cmd;
-        bool quit=false,running=false; 
+        bool quit=false,running=false;
         string name = mPub.getName();
         while(!quit){
             if(running){
@@ -61,16 +63,16 @@ private:
                         quit=true;
                     }
                 }else{
-                    T data;            
+                    T data;
                     if(mData->setData(data)==0){
-                        mPub.publish(data);                    
+                        mPub.publish(data);
                     }else{
                         if(freq<MIN_FREQ){
-                            usleep(20000);                            
+                            usleep(20000);
                         }
                     }
-                    if(freq>MIN_FREQ){                    
-                        mRate.sleep();                    
+                    if(freq>MIN_FREQ){
+                        mRate.sleep();
                     }
                 }
             }else{
@@ -86,7 +88,7 @@ private:
                     }
                 }
             }
-        } 
+        }
     }
     void sendCmd(int cmd)
     {
@@ -95,11 +97,13 @@ private:
     void clientIn(int cnt)
     {
         string name = mPub.getName();
+        printf("clientIn topic name:%s %d\n", name.c_str(), cnt);
         sendCmd(DATA_PUBLISHER_RUN);
     }
     void clientOut(int cnt)
     {
         string name = mPub.getName();
+        printf("clientOut topic name:%s %d\n", name.c_str(), cnt);
         if(cnt==0){
             sendCmd(DATA_PUBLISHER_STOP);
         }

@@ -59,17 +59,13 @@ typedef  void* CMHandle; //camera handle
 typedef  void* VSHandle; //Video stream handle
 
 CMHandle video_stream_create_camera(CaputreParam *param);
-
 void video_stream_destory_camera(CMHandle handle);
 int video_stream_get_camera_param(CMHandle handle,CaputreParam *param);
 int video_stream_get_camera_fd(CMHandle handle);
 
 VSHandle video_stream_create(CMHandle handle,int buffCount);
-
 void video_stream_destory(VSHandle handle);
-
 FrameBuff* video_stream_get_frame(VSHandle handle);
-
 int video_stream_return_frame(VSHandle handle,FrameBuff *frame);
 
 int setAeMaxExposureTime(CMHandle handle, float time);

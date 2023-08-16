@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <thread>             // std::thread
 #include <mutex>              // std::mutex, std::unique_lock
-#include <condition_variable> 
+#include <condition_variable>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,18 +99,17 @@ using namespace roller_eye;
 
 #define MEM_SIZE 900000
 #define DISK_SIZE 7.0   //GB
+class CompGreater
+{
+public:
+    bool operator ()(const WiFiInFo& info1, const WiFiInFo& info2)
+    {
+        return info1.signal > info2.signal;
+    }
+};
 
-class CompGreater 
-{ 
-public: 
-    bool operator ()(const WiFiInFo& info1, const WiFiInFo& info2) 
-    { 
-        return info1.signal > info2.signal; 
-    }   
-}; 
 
-
-class BistNode{   
+class BistNode{
     public:
     BistNode();
     ~BistNode();
@@ -123,8 +122,9 @@ private:
 	void IlluminanceCB(const sensor_msgs::IlluminanceConstPtr& ptr);
 	void IRLightCB(const sensor_msgs::IlluminanceConstPtr& ptr);
 	void imuCB(const sensor_msgs::Imu::ConstPtr& msg);
+	void imuForMotorCB(const sensor_msgs::Imu::ConstPtr& msg);
 	void VideoDataCB(roller_eye::frameConstPtr frame);
-	
+
 	void calDistanceAndAngle(Eigen::Quaterniond& q,Eigen::Vector3d& pos,Eigen::Vector3d &goal,double &angle,double &distance);
     void LEDControl(int id,int flag)
     {
@@ -167,6 +167,9 @@ private:
 	void BistSaveImage();
 	void JpgCallback(roller_eye::frameConstPtr frame);
 	void getPose(float &lastX,float &lastY,float &angle);
+    bool translation(float x, float speed, float xError);
+	void doAlign();
+	void moveByObj(float angle);
 	//void GreyImagCallback(const sensor_msgs::ImageConstPtr& msg);
 	void BistVideoDetect();
 	void BistTofDetect();
@@ -185,9 +188,10 @@ private:
 
 	void BistPCBIMUDetect();
 	void BistPCBTofDetect();
-	void BistMicrophoneDetect();	
+	void BistMicrophoneDetect();
 	void BistPCBVideoDetect();
 
+	void BistOpenSpaceDetect();
 	AlgoUtils mAlgo;
 	float mRange = 0.0;
 	float mPCBRange = 0.0;
@@ -205,7 +209,7 @@ private:
 	const string PCM2WAVFILE="/tmp/pcm2wav.wav";
 	const string WAVFILE="/tmp/test.wav";
 	const string BistImage="/userdata/Bist.jpg";
-	
+
 	int mPcmHzs[3] = {0};
 	bool mIllumMin = false;
 	bool mIllumMax = false;
@@ -223,7 +227,7 @@ private:
 	int mResetFD;
 	int mPowerFD;
 	int IllumCount;
-	
+
     const string WIFI_KEY_TYPE="rk29-keypad";
     const string RESET_KEY_TYPE = "adc-keys";
     const string POWER_KEY_TYPE = "rk8xx_pwrkey";
@@ -250,11 +254,11 @@ private:
 	int     mBistType;
 	bool mBistStartDetct = false;
 	bool mBistAllPassed = false;
-	
+
 	bool mBistVideoRes = false;
 	bool mBistVideoDis = false;
 	bool mBistVideoJpg = false;
-	
+
 	bool mBistTof = false;
 	bool mSpeakerMicrophone = false;
 	bool mKey = false;
@@ -267,7 +271,7 @@ private:
 	bool mMotorWheel  = false;
 	bool mMemery = false;
 	bool mDisk = false;
-	
+
 	bool mDetectRunning = false;
 
 	Eigen::Quaterniond mCurPose;
@@ -275,11 +279,11 @@ private:
 	//CVGreyImageStream mGreyStream;
 	ros::Subscriber m_subJPG;
 	ros::Subscriber m_BistJPG;
-	
+
 	ros::Subscriber m_subGrey;
 	cv::Mat m_BistGrey;
 	vector<uint8_t> mGreyData;
-	
+
 	ros::Subscriber mTof;
 	ros::Subscriber mVideo;
 	ros::Subscriber mOdomRelative;
@@ -287,17 +291,19 @@ private:
 	ros::Subscriber mScrLight;
 	ros::Subscriber mScrIMU;
 	ros::ServiceClient mImuClient;
-	
+
 	shared_ptr<ros::NodeHandle> mGlobal;
 	ros::Publisher  mSysEvtPub;
 	ros::Publisher	mPub;
-	
+
 	ros::Publisher mCmdVel;
-	ros::NodeHandle mGlobal2;    
+	ros::NodeHandle mGlobal2;
 	ros::Subscriber mSwitch;
 	ros::Publisher mCmdVel3;
 	ros::ServiceServer mStartBistSrv;
 	ros::ServiceServer mGetBistResSrv;
+	 float mAvgTof;
+	 bool mOpenSpace;
 	//ros::NodeHandle mGlobal1;
 };
 

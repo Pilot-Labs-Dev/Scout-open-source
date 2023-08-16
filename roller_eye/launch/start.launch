@@ -1,12 +1,12 @@
 <launch>
   <!-- group ns="roller_eye" -->
     <arg name="roller_eye_config_base" value="/var/roller_eye/config"/>
-    <rosparam command="load" file="$(arg roller_eye_config_base)/video.yaml" ns="ParamNode/video"/>    
-    <node pkg="roller_eye"  name="SupervisorNode" type="supervisor_node" respawn="true" respawn_delay="5"/> 
+    <rosparam command="load" file="$(arg roller_eye_config_base)/video.yaml" ns="ParamNode/video"/>
+    <node pkg="roller_eye"  name="SupervisorNode" type="supervisor_node" respawn="true" respawn_delay="5"/>
     <node pkg="roller_eye"  name="SchedNode" type="sched_node" respawn="true" respawn_delay="5"/>
     <node pkg="roller_eye"  name="DetectRecordNode" type="detect_record_node" respawn="true" respawn_delay="5"/>
-    <node pkg="roller_eye"  name="CoreNode" type="media_core_node" respawn="true" respawn_delay="5"/>
-    <node pkg="roller_eye"  name="WiFiNode" type="wifi_node" respawn="true" respawn_delay="20"/> 
+    <node pkg="roller_eye"  name="CoreNode" type="media_core_node" respawn="true" respawn_delay="2"/>
+    <node pkg="roller_eye"  name="WiFiNode" type="wifi_node" respawn="true" respawn_delay="20"/>
     <node pkg="roller_eye"  name="RecorderAgentNode" type="recorder_agent_node" respawn="true" respawn_delay="5"/>
     <node pkg="roller_eye"  name="RTMPNode" type="rtmp_node" respawn="true" respawn_delay="5"/>
     <node pkg="roller_eye"  name="MotorNode" type="motor_node" respawn="true" respawn_delay="5"/>
@@ -16,19 +16,5 @@
     <node pkg="roller_eye"  name="UtilNode" type="util_node" respawn="true" respawn_delay="5"/>
     <node pkg="roller_eye"  name="SpeakerNode" type="speaker_node" respawn="true" respawn_delay="1"/>
     <node pkg="roller_eye"  name="BistNode" type="bistNode" respawn="true" respawn_delay="5"/>
-    <node pkg="roller_eye" type="vio" name="vio" clear_params="true"  respawn="false" respawn_delay="5" output="screen">      
-      <param name="cam_topic" value="/CoreNode/grey_img" type="str" />
-      <param name="imu_topic" value="/SensorNode/imu" type="str" />
-      <param name="cmd_topic" value="/cmd_vel" type="str" />
-      <param name="start" value="/vio/start" type="str" />
-      <param name="stop" value="/vio/stop" type="str" />
-      <param name="odom" value="/vio/getOdom" type="str" />
 
-      </node>      
-      <!-- Camera calibration file -->
-      <rosparam file="$(find roller_eye)/param/px30.yaml" />
-
-      <!-- Default parameter settings: choose between vo_fast and vo_accurate -->
-       <rosparam file="$(find roller_eye)/param/vo_fast.yaml" />
-    <!-- /group -->
 </launch>

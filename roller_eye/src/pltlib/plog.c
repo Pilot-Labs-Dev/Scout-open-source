@@ -158,8 +158,6 @@ static void* zlog_thread_loop(void* arg){
 	}
 
 	zlog_set_notify(logarg);
-
-	return NULL;
 }
 
 void dzlog_mkdir(log_t *arg){
@@ -222,7 +220,7 @@ int dzlogInit(log_t *arg, int size){
 		ret+= dzlog_init(log_handle->confpath, log_handle->cname);
 		ret+= pthread_create(&zlog_thread,NULL,zlog_thread_loop,(void*)log_handle);
 	}else{
-		printf("malloc size:%ld error!\r\n",sizeof(log_t));
+		printf("malloc size:%d error!\r\n",sizeof(log_t));
 		ret =-1;
 	}
 	pthread_mutex_unlock(&log_mutex);

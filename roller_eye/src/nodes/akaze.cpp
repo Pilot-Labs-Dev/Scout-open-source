@@ -60,6 +60,16 @@ int writeAngle(float angle)
     return 0;
 }
 
+/************************************************* 
+Function:       match_akaze
+Description:  Feature point matching. The detector, matcher and parameters 
+                           selected here are related to the hardware resources of Scout.
+                           If the amount of calculation is large, the resources may be insufficient
+Input:         strBasePic- Previously saved pictures file name
+                      strCurPic- Currently acquired picture file name
+Output:      call writeAngle write to shared memory
+Return:       true- success, false- fail
+*************************************************/
 int match_akaze(cv::Mat& subimg,cv::Mat& mainimg, std::vector<cv::KeyPoint>& keypoints_sub,
                                          std::vector<cv::KeyPoint>& keypoints_main, std::vector<cv::DMatch>& matches)
 {
@@ -69,15 +79,18 @@ int match_akaze(cv::Mat& subimg,cv::Mat& mainimg, std::vector<cv::KeyPoint>& key
     //Ptr<KAZE> detector = KAZE::create(false,false, 0.0001,3,4);
     //Ptr<KAZE> detector = KAZE::create();
 
+   
     Ptr<KAZE> detector = KAZE::create(false,false, 0.0001,3,4,KAZE::DIFF_CHARBONNIER);
    //Ptr<AKAZE> detector = AKAZE::create(AKAZE::DESCRIPTOR_MLDB, 0, 3,0.0001f,3,4,KAZE::DIFF_CHARBONNIER);
 
     Mat descript_sub,descript_main;
 
     cout<<"KAZE::create"<<endl;
+    /** Detects keypoints and computes the descriptors */
     detector->detectAndCompute(subimg,Mat(),keypoints_sub,descript_sub);
     detector->detectAndCompute(mainimg,Mat(),keypoints_main,descript_main);
     cout<<"detectAndCompute"<<endl;
+
     //BFMatcher matcher;
     BFMatcher matcher(NORM_L2SQR);
     matcher.match(descript_sub,descript_main,matches);
@@ -86,6 +99,14 @@ int match_akaze(cv::Mat& subimg,cv::Mat& mainimg, std::vector<cv::KeyPoint>& key
     return descript_sub.rows;
 }
 
+/************************************************* 
+Function:       getDiffAngle
+Description:  According to the feature points of the two pictures, the angle offset is calculated.
+Input:         strBasePic- Previously saved pictures file name
+                      strCurPic- Currently acquired picture file name
+Output:      call writeAngle write to shared memory
+Return:       true- success, false- fail
+*************************************************/
 bool getDiffAngle(string strBasePic, string strCurPic)
 {
   float angle = 0.0;
@@ -105,6 +126,8 @@ bool getDiffAngle(string strBasePic, string strCurPic)
   vector<cv::DMatch> matches;
 
   cout<<"match_akaze"<<endl;
+
+  //Feature point matching
   int nRows = match_akaze(grey,src, keypoints_sub, keypoints_main, matches);
 
   float maxdist = 0;
@@ -120,6 +143,11 @@ bool getDiffAngle(string strBasePic, string strCurPic)
        }
   }
 
+    /*
+    The field of view angle of the camera is 120 degrees. Assuming that the maximum offset angle is 15 degrees,
+     pass max_y_shift and max_x_shift shift valve value filters the feature points that meet the requirements,
+       and calculates the offset angle according to the difference of x-axis.
+    */
    int img_height = src.rows;
    int img_width = src.cols;
    float camera_angle=120;
@@ -161,7 +189,8 @@ int main(int argc, char **argv)
     if (argc != 3){
         return -1;
     }
-    
+
+    //Get angle offset from shared memory
     getDiffAngle(argv[1],argv[2]);
     //clGetDiffAngle(argv[1],argv[2]);
     return 0;

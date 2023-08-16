@@ -1,6 +1,5 @@
 #!/bin/bash
 INTERFACE_NAME=wlan0
-MAX_WAIT_TIME=30
 
 #check wifi sta mode is ok or not
 ifconfig $INTERFACE_NAME | grep '\s*inet'
@@ -26,6 +25,6 @@ if [ "$dhclient_pid" != "" ];then
 	kill $dhclient_pid
 fi
 ip addr flush dev wlan0
-sleep 2
+sleep 1
 
 wpa_supplicant -i $INTERFACE_NAME -c /etc/wpa_supplicant/wpa_supplicant.conf &

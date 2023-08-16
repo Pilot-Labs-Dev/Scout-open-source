@@ -31,6 +31,27 @@ void watchdog()
     }
 }
 
+void superviosor_rkisp_3A()
+{
+    char* const argv_execv[]={"rkisp_3A_server","--mmedia=/dev/media0",NULL};
+    while(1){   
+		int status;
+        pid_t pid = fork(); 
+        if (pid == -1) {
+            fprintf(stderr, "fork() error.errno:%d error:%sn", errno, strerror(errno));
+            break;
+        }
+        if (pid == 0) {
+            execv("/usr/bin/rkisp_3A_server",  argv_execv);
+        }
+ 
+        if (pid > 0) {
+            pid = wait(&status); 
+            fprintf(stdout, "wait return\n");
+        } 
+    }
+}
+
 int main(int argc, char **argv)
 {     
     watchdog(); 

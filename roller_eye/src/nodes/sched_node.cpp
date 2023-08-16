@@ -66,8 +66,8 @@ public:
     }
 protected:
     virtual void doTask(TimerTaskPtr &task,nlohmann::json& param)=0;
-    ros::NodeHandle mGlobal; 
-    ros::NodeHandle mLocal; 
+    ros::NodeHandle mGlobal;
+    ros::NodeHandle mLocal;
     ros::Publisher mTask;
 };
 class PatrolTaskHandler:public TimerTaskHandler{
@@ -121,29 +121,29 @@ private:
                 record_start::Response res;
 
                 if (!mRecording){
-                    ROS_INFO("record start command\n");
+                    // ROS_INFO("record start command\n");
                     //req.type= record::RECORD_TYPE_RECORD;
                     req.type= record::RECORD_TYPE_SCHED_RECORD;
                     req.mode= 1;
-                    req.duration= 30000;            
+                    req.duration= 30000;
                     req.count= 0;                   //keep on recording until stop patrol
 
-                    ROS_INFO("record start call\n");
+                    // ROS_INFO("record start call\n");
                     if(mRecordStartClient.call(req,res)){
                         if(res.status==status::PROCESS_OK){
-                            ROS_INFO("record start call suc\n");
+                            // ROS_INFO("record start call suc\n");
                             mRecording = true;
                         }
                     }
-                }            
+                }
             }
         }else{
-            if (mRecording){                
+            if (mRecording){
                 record_stop::Request req;
                 record_stop::Response res;
                 mRecording = false;
                 req.type= record::RECORD_TYPE_SCHED_RECORD;
-                ROS_INFO("record stop call\n");
+                // ROS_INFO("record stop call\n");
                 if(mRecordStopClient.call(req,res)){
                     if(res.status==status::PROCESS_OK){
                         ROS_INFO("record stop call suc\n");
@@ -159,7 +159,7 @@ private:
 
     void batteryStatusCallback(const statusConstPtr &s)
     {
-        mChargingStatus=s->status[2];      
+        mChargingStatus=s->status[2];
     }
 
     ros:: ServiceClient mClient;
@@ -193,14 +193,14 @@ private:
         int delay;
         mNextTask=mSched.getNextTask(delay);
         if(mNextTask){
-            ROS_INFO("next task delay:%d",delay);
+            // ROS_INFO("next task delay:%d",delay);
             if(delay>0){
                 mTimer.setPeriod(ros::Duration(delay));
             }else{
-                mTimer.setPeriod(ros::Duration(0.1));           
+                mTimer.setPeriod(ros::Duration(0.1));
             }
         }else{
-            ROS_INFO("today no timer task,next day delay=%d",delay);
+            // ROS_INFO("today no timer task,next day delay=%d",delay);
             mTimer.setPeriod(ros::Duration(delay));
         }
     }
@@ -214,8 +214,8 @@ private:
         if(mNextTask){
           if(!detectProcessIsExited("python /userdata/roller_eye/scratch/scripts/")){
             mSched.schedTask(mNextTask);
-            ROS_INFO("task[%d] schedule",mNextTask->id);
-            
+            // ROS_INFO("task[%d] schedule",mNextTask->id);
+
             executeTask(mNextTask);
           }
         }
@@ -266,6 +266,7 @@ private:
         updateNextTask();
         return ret;
     }
+
     bool listTask(sched_listRequest& req,sched_listResponse& res)
     {
         auto tsks=mSched.getTasks(req.type,req.startID,req.count);
@@ -275,7 +276,7 @@ private:
             res.result.push_back(tsk);
         }
         return true;
-    } 
+    }
     void executeTask(TimerTaskPtr& task)
     {
         auto handler=mTaskHandler.find(task->type);
@@ -285,11 +286,11 @@ private:
         }
         handler->second->excuteTask(task);
     }
-    ros::NodeHandle mLocal; 
+    ros::NodeHandle mLocal;
     ros::Timer mTimer;
     ros::ServiceServer mAdd;
-    ros::ServiceServer mDel;    
-    ros::ServiceServer mList;    
+    ros::ServiceServer mDel;
+    ros::ServiceServer mList;
     TimerTaskScheduler mSched;
     TimerTaskPtr mNextTask;
     map<string,shared_ptr<TimerTaskHandler>> mTaskHandler;

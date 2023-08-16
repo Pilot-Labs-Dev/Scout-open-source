@@ -21,6 +21,11 @@
 #include "BistNode.hpp"
 
 #include "roller_eye/arecord.h"
+#include"nlohmann/json.hpp"
+
+#define BIST_NODE_TAG    "BistNode"
+
+using json = nlohmann::json;
 
 static const string PROC_MOTOR_PATH="/proc/driver/motor";
 
@@ -31,15 +36,33 @@ const char* BIST_TAG="bist";
 static shared_ptr<BistNode> g_BistNode;
 bool getHomeDistanceAndAngle(cv::Mat Grey,const AlgoOBjPos &objPos,float &x,float&z,float &angle);
 
+static int g_calibrate_cnt=0;
+double g_dist           = 0;
+double g_preTime = -1;
+float g_zCalibra = 0;
+Eigen::Vector3d g_preIMUVector;
+std::mutex g_mtx;
+
+#define CALIBRATE_MAX_CNT       500
+static sensor_msgs::Imu g_preIMU;
+#define G_VALUE     9.7833
+
+static Eigen::Vector3d g_gyro_offset(0,0,0);
+static Eigen::Vector3d g_acc_offset(0,0,0);
+static const Eigen::Vector3d G(0,0,G_VALUE);
+static Eigen::Quaterniond g_pose(1,0,0,0);
+static Eigen::Vector3d g_positon(0,0,0);
+static Eigen::Vector3d g_vel(0,0,0);
 BistNode::BistNode(){
 	logInit();
-	
+
+	mAvgTof = MAX_VALID_TOF_DIST;
 	dzlog_info("BistNode init1.");
 	mGlobal=make_shared<ros::NodeHandle>("");
 	mSysEvtPub = mGlobal->advertise<std_msgs::Int32>("/system_event",1);
 	mCmdVel=mGlobal->advertise<geometry_msgs::Twist>("cmd_vel",100);
 	mCmdVel3=mGlobal->advertise<geometry_msgs::Twist>("cmd_vel3",100);
-	
+
 	mCurPose=Eigen::Quaterniond(1.0,0.0,0.0,0.0);
 	mCurPostion=Eigen::Vector3d(0.0,0.0,0.0);
 
@@ -50,7 +73,7 @@ BistNode::BistNode(){
 		KeyStatusLoop();
 	});
 	KeyStatusTh.detach();
-	
+
 	auto BistTh=std::thread([this](){
 		BistLoop();
 	});
@@ -61,16 +84,16 @@ BistNode::~BistNode(){
 	dzlogfInit();
 }
 
-void BistNode::KeyStatusLoop(){	
+void BistNode::KeyStatusLoop(){
 		mWiFiFD=sensor_open_input(WIFI_KEY_TYPE.c_str());
 		mResetFD = sensor_open_input(RESET_KEY_TYPE.c_str());
 		mPowerFD = sensor_open_input(POWER_KEY_TYPE.c_str());
-		
-		time_t LastTime = time(NULL); 
-		
+
+		time_t LastTime = time(NULL);
+
 		plt_assert(mWiFiFD>=0 && mResetFD >= 0);
 		fd_set fds;
-		
+
 		//int maxFD = std::max(mWiFiFD, mResetFD) + 1;
 		int maxFD = std::max(mWiFiFD, mResetFD);
 		maxFD = std::max(mPowerFD, maxFD)+1;
@@ -86,7 +109,7 @@ void BistNode::KeyStatusLoop(){
 			if(FD_ISSET(mWiFiFD,&fds)){
 				processWiFiKey();
 			}
-	
+
 			if(FD_ISSET(mResetFD,&fds)){
 			  processResetKey();
 			}
@@ -101,8 +124,13 @@ void BistNode::KeyStatusLoop(){
 				std_msgs::Int32 event;
 				event.data = SYSEVT_BIST_START;
 				mSysEvtPub.publish(event);
-				
-				system("aplay " BIST_DETECT);
+				json param;
+				PltConfig *config = PltConfig::getInstance();
+				config->getSoundEffectParam(param);
+				int activate = param["activate"];
+				if (activate){
+					system("aplay " BIST_DETECT);
+				}
 				for(int index = 0;index <5;index++){
 					LEDAllON();
 					sleep(1);
@@ -175,8 +203,9 @@ void BistNode::BistLoop(){
 			if (1==mBistType){
 				BistBatteryDetect(); //ok 2
 				BistIMUDetect(); //ok 6
+				BistOpenSpaceDetect();
 				BistMotorWheelsDetect();
-				BistTofDetect(); // 
+				BistTofDetect(); //
 				BistVideoDetect();
 				BistWIFIAntennaDetect();
 				BistWIFIDetect();	//ok 3
@@ -193,6 +222,7 @@ void BistNode::BistLoop(){
 				//mSpeakerMicrophone = true;
 				//mIMU = true;
 				//mBistTof = true;
+				IrLightOn();
 				BistMemDetect();
 				BistDiskDetect();
 				BistDriveMotor();
@@ -230,7 +260,7 @@ void BistNode::BistReset(){
 	mBistAllPassed = false;
 	mIRLight = false;
 	mMemery = false;
-	mDisk = false;	
+	mDisk = false;
 }
 
 void BistNode::BistStatus(){
@@ -259,7 +289,7 @@ void BistNode::BistStatus(){
 				sleep(1);
 				if(mBistStartDetct)break;
 			}
-			
+
 			if(mBistStartDetct)break;
 		}
 
@@ -386,20 +416,20 @@ void BistNode::getPose(float &lastX,float &lastY,float &angle)
 		}
 		if(!m_BistGrey.empty()){
 			static const string HOME="home";
-			
+
 			AlgoOBjPos pos;
-		
+
 			int ret = mAlgo.waitObj(HOME, 3000, pos);
 			if(0 == ret){
-				std::cout << "left0: " << pos.left << ", " << pos.top << ", " << pos.right
-						<<", " << pos.bottom <<", "<<pos.width<<", "<<pos.height<<std::endl;
+				// std::cout << "left0: " << pos.left << ", " << pos.top << ", " << pos.right
+						// <<", " << pos.bottom <<", "<<pos.width<<", "<<pos.height<<std::endl;
 				bChess = getHomeDistanceAndAngle(m_BistGrey,pos,lastX,lastY,angle);
 			}
 
 			//}
 			lastY -= ALIGN_DISTANCE;
 			printf("x:%f,y:%f,angle:%f\r\n",lastX,lastY,angle);
-			cv::Rect2f rect(pos.left, pos.top, 
+			cv::Rect2f rect(pos.left, pos.top,
 						pos.right-pos.left, pos.bottom-pos.top);
 			dzlog_debug("lastX:%f,lastZ:%f,angle:%f\r\n", lastX,lastY,angle);
 		}
@@ -409,58 +439,144 @@ void BistNode::getPose(float &lastX,float &lastY,float &angle)
 	}
 }
 
+void BistNode::moveByObj(float angle)
+{
+	PLOG_DEBUG(BIST_NODE_TAG,"moveByObj() roll:%f\n",angle);
+	mAlgo.roll(angle,2.0);
+	usleep(100*1000);
+}
+
+
+bool BistNode::translation(float x, float speed, float xError)
+{
+	mScrIMU = mGlobal->subscribe("SensorNode/imu", 1000, &BistNode::imuForMotorCB,this);
+
+	PLOG_DEBUG(BIST_NODE_TAG,"translation:%f %f\n",x, speed);
+	//ImuIntegrator();
+	Eigen::Vector3d zero(0,0,0);
+	g_acc_offset = zero;
+	g_calibrate_cnt = 0;
+	g_dist = 0;
+	for (int i=0; i<30; i++){
+ 		if(g_calibrate_cnt<CALIBRATE_MAX_CNT){
+			usleep(100*1000);
+		 }else{
+			 break;
+		 }
+	}
+
+	mAlgo.move(x, 0, speed);
+
+	mScrIMU.shutdown();
+
+	PLOG_DEBUG(BIST_NODE_TAG,"g_dist:%f \n", g_dist);
+
+	if (x>0 && g_dist<0){
+		PLOG_DEBUG(BIST_NODE_TAG,"translation toward right but it's left \n");
+		return false;
+	}else if (x<0 && g_dist>0){
+		PLOG_DEBUG(BIST_NODE_TAG,"translation toward left but it's right \n");
+		return false;
+	}
+
+	return true;
+}
+
+void BistNode::doAlign()
+{
+#define BACK_ROLL_ERROR                      (1.5*M_PI/180) //1 degree
+
+	for (int i=0; i<10; i++){
+		float lastX1 =  0,lastY1 =  0,angle1 =  0;
+		getPose(lastX1,lastY1,angle1);
+		PLOG_DEBUG(BIST_NODE_TAG, "angle1:%f", angle1);
+
+		if (abs(angle1) > BACK_ROLL_ERROR){
+			moveByObj(angle1);
+		}else{
+			break;
+		}
+	}
+
+}
 
 void BistNode::BistMotorWheelsDetect()
 {
 	dzlog_info("\r\n============%s============",__FUNCTION__);
-	
+
 	//m_BistJPG = mGlobal->subscribe("CoreNode/jpg", 100, &BistNode::VideoDataCB, this);
 	//CVGreyImageStream CVStream(1920,1080);
 	//mOdomRelative=mGlobal->subscribe("MotorNode/baselink_odom_relative", 100, &BistNode::odomRelativeCB,this);
-	double xDistance = 0;; 
-	double yDistance = BIST_MOVE_DIST; 
+	double xDistance = 0;
+	double yDistance = BIST_MOVE_DIST;
 	double speed = 0.2*MACC_MAX_SPEED_Y;
-	//PLOG_DEBUG(UTIL_NODE_TAG, "algoMove, xDistance:%.2fm yDistance:%.2fm speed:%.2fm/s", req.xDistance, req.yDistance, req.speed);
+	//PLOG_DEBUG(BIST_NODE_TAG, "algoMove, xDistance:%.2fm yDistance:%.2fm speed:%.2fm/s", req.xDistance, req.yDistance, req.speed);
  	Eigen::Vector3d  startPostion = mCurPostion;
 	bool bFs8003Motor = false;
-	string hwVer;
-	PltConfig::getInstance()->getHwVersion(hwVer);
-	if (hwVer.length() ==10 && hwVer[5] == '0' && hwVer[6] == '1' ){
+
+
+	PLOG_INFO(BIST_NODE_TAG,"Footprint(0001_...) \n");
+
+	if (PltConfig::getInstance()->isChinaMotor()){  /// Fix motor type
+		PLOG_INFO(BIST_NODE_TAG,"Footprint(0002_...) \n");
+		PLOG_INFO(BIST_NODE_TAG,"%s in %s # %s: %s!\n",__FUNCTION__,__FILE__,__DATE__,"China Motor!");
+		///<<< printf("%s in %s # %s: %s!\n",__FUNCTION__,__FILE__,__LINE__,"China Motor!");
 		bFs8003Motor = true;
 	}
+	else
+	{
+
+		PLOG_INFO(BIST_NODE_TAG,"Footprint(0003_...) \n");
+		PLOG_INFO(BIST_NODE_TAG,"%s in %s # %s: %s!\n",__FUNCTION__,__FILE__,__TIME__,"ST Motor!");
+	}
+
+	PLOG_INFO(BIST_NODE_TAG,"Footprint(0004_...) \n");
+
 
 	int ret = mAlgo.move(0, BIST_MOVE_DIST, 0.15);
-	
+
 	mAlgo.roll(M_PI,DETECT_ROLL_SPEED);
-	PLOG_DEBUG(UTIL_NODE_TAG, "algoMove ret:%d", ret);
+	doAlign();
+	PLOG_DEBUG(BIST_NODE_TAG, "algoMove ret:%d", ret);
 	//sleep(1);
 	float lastX1 =  0,lastY1 =  0,angle1 =  0;
 	getPose(lastX1,lastY1,angle1);
 	//ret = mAlgo.move(BIST_MOVE_DIST, 0, 0.13);
-	if (bFs8003Motor){
-		ret = mAlgo.move(BIST_MOVE_DIST, 0, 0.1);
+	bool bRight = false;
+	if (!bFs8003Motor){      /// Fix motor logic
+		//ret = mAlgo.move(BIST_MOVE_DIST, 0, 0.1);
+		bRight = translation(BIST_MOVE_DIST, 0.1, BIST_MOVE_DIST);
 	}else{
-	 	ret = mAlgo.move(BIST_MOVE_DIST, 0, 0.13);
+	 	//ret = mAlgo.move(BIST_MOVE_DIST, 0, 0.13);
+		bRight = translation(BIST_MOVE_DIST, 0.13, BIST_MOVE_DIST);
 	}
-	PLOG_DEBUG(UTIL_NODE_TAG, "algoMove ret:%d", ret);
+	PLOG_DEBUG(BIST_NODE_TAG, "algoMove ret:%d", ret);
 	sleep(1);
 	//mAlgo.roll(M_PI/4,DETECT_ROLL_SPEED);
 	//float lastX2 =  0,lastY2 =  0,angle2 =  0;
 	//getPose(lastX2,lastY2,angle2);
 	//mAlgo.roll(-M_PI/4,DETECT_ROLL_SPEED);
 	//ret = mAlgo.move(-BIST_MOVE_DIST,0, 0.13);
-	if (bFs8003Motor){
-		ret = mAlgo.move(-BIST_MOVE_DIST, 0, 0.1);
+
+	bool bLeft = false;
+	if (!bFs8003Motor){		/// Fix motor logic
+		//ret = mAlgo.move(-BIST_MOVE_DIST, 0, 0.1);
+		bLeft = translation(-BIST_MOVE_DIST, 0.1, -BIST_MOVE_DIST);
 	}else{
-		ret = mAlgo.move(-BIST_MOVE_DIST,0, 0.13);
+		//ret = mAlgo.move(-BIST_MOVE_DIST,0, 0.13);
+		bLeft = translation(-BIST_MOVE_DIST, 0.13, -BIST_MOVE_DIST);
 	}
-	PLOG_DEBUG(UTIL_NODE_TAG, "algoMove ret:%d", ret);
+	PLOG_DEBUG(BIST_NODE_TAG, "algoMove ret:%d", ret);
 	//sleep(1);
 	float lastX3 =  0,lastY3 =  0,angle3 =  0;
 	getPose(lastX3,lastY3,angle3);
 
-	//if( 0.1 > abs(lastX3) && (BIST_MOVE_DIST-0.1)<abs(lastY3) && (BIST_MOVE_DIST+0.1)>abs(lastY3) && 0.06>abs(angle3) 
-	if( 0.2 > abs(lastX3) && (BIST_MOVE_DIST-0.2)<abs(lastY3) && (BIST_MOVE_DIST+0.2)>abs(lastY3) && 0.2>abs(angle3) 
+	//if( 0.1 > abs(lastX3) && (BIST_MOVE_DIST-0.1)<abs(lastY3) && (BIST_MOVE_DIST+0.1)>abs(lastY3) && 0.06>abs(angle3)
+	if(bRight &&  bLeft &&
+	     0.2 > abs(lastX3) &&
+		  (BIST_MOVE_DIST-0.2)<abs(lastY3) &&
+		  (BIST_MOVE_DIST+0.2)>abs(lastY3) &&
+		   0.2>abs(angle3)
 		/*&& 0.05 > abs(lastY3 - lastY2)*/){
 		mMotorWheel = true;
 	}
@@ -480,22 +596,26 @@ void BistNode::BistTofDetect()
 	dzlog_info("\r\n============%s============",__FUNCTION__);
 	//if(!mTof){
 	mTof=mGlobal->subscribe("SensorNode/tof",1,&BistNode::tofDataCB,this);
-	//} 
-	
+	//}
+
 	int repeat = 0;
 	cv_status status = std::cv_status::timeout;
 	while( std::cv_status::timeout == status ){
 		printf("BistTofDetect.\r\n");
 		std::unique_lock<std::mutex> lck(mtx);
 		status = cv.wait_for(lck,std::chrono::seconds(5));
-		
+
 		if( (std::cv_status::timeout != status) || (5 < repeat++) ){
 			break;
 		}
 	}
 
 	mTof.shutdown();
-	
+
+	if (!mOpenSpace){
+		mBistTof = false;
+		dzlog_info("\r\nBist TofDetect is failured because open space");
+	}
 	if(!mBistTof){
 		//LEDStatus(BIST_TOF_ERROR);
 		dzlog_error("Bist TofDetect status:%s.",mBistTof ? "Passed" : "Failure");
@@ -514,7 +634,7 @@ void BistNode::BistSpeakerMicrophoneDetect()
 	while( !mSpeakerMicrophone ){
 		//PCMgeneration();
 		//pcm2wave(PCMFILE.c_str(), 2, 0, PCM2WAVFILE.c_str());
-		
+
 		string aply = "aplay ";
 		//aply += PCM2WAVFILE;
 		aply += "/var/roller_eye/devAudio/bist_test.wav ";
@@ -524,7 +644,7 @@ void BistNode::BistSpeakerMicrophoneDetect()
 		system(aply.c_str());
 		system(record.c_str());
 		usleep(100*1000);
-		
+
 		PCMAnalysis(1);
 		//8k
 		//if( (25000 < mPcmHz)&&(mPcmHz < 35000) ){
@@ -539,7 +659,7 @@ void BistNode::BistSpeakerMicrophoneDetect()
 			break;
 		}
 	}
-	
+
 	if(!mSpeakerMicrophone){
 		//LEDStatus(BIST_SOUND_ERROR);
 		dzlog_error("Bist mSpeakerMicrophone status:%s.",mSpeakerMicrophone ? "Passed" : "Failure");
@@ -549,14 +669,14 @@ void BistNode::BistSpeakerMicrophoneDetect()
 }
 
 void BistNode::BistKeyDetect()
-{	
+{
 	mWiFiFD=sensor_open_input(WIFI_KEY_TYPE.c_str());
 	mResetFD = sensor_open_input(RESET_KEY_TYPE.c_str());
-	time_t LastTime = time(NULL); 
-	
+	time_t LastTime = time(NULL);
+
 	plt_assert(mWiFiFD>=0 && mResetFD >= 0);
 	fd_set fds;
-	
+
 	int maxFD = std::max(mWiFiFD, mResetFD) + 1;
     while(true) {
         FD_ZERO(&fds);
@@ -673,7 +793,7 @@ void BistNode::scanWiFiQuality(vector<WiFiInFo>& wifis )
     scan=popen(cmd.c_str(),"r");
     if(scan==NULL){
         PLOG_ERROR(WIFI_TAG,"Open Scan WiFi list Fail\n");
-        return;     
+        return;
     }
 
     while(fgets(buff,sizeof(buff),scan)){
@@ -736,7 +856,7 @@ void BistNode::scanWiFilist(vector<WiFiInFo>& wifis )
     scan=popen(cmd.c_str(),"r");
     if(scan==NULL){
         PLOG_ERROR(WIFI_TAG,"Open Scan WiFi list Fail\n");
-        return;     
+        return;
     }
 
     while(fgets(buff,sizeof(buff),scan)){
@@ -792,20 +912,20 @@ void BistNode::BistBatteryDetect()
 	dzlog_info("\r\n============%s============",__FUNCTION__);
 	//LEDProcess(BIST_BATTERY_ERROR);
 	mBatteryStatus=mGlobal->subscribe("SensorNode/simple_battery_status",10,&BistNode::BatteryStatusCB,this);
-	
+
 	int repeat = 0;
 	cv_status status = std::cv_status::timeout;
 	while( std::cv_status::timeout == status ){
 		printf("Please put scout back into the charging pile.\r\n");
 		std::unique_lock<std::mutex> lck(mtx);
 		status = cv.wait_for(lck,std::chrono::seconds(5));
-		
+
 		if( (std::cv_status::timeout != status) || (5 < repeat++) ){
 			break;
 		}
 	}
 	mBatteryStatus.shutdown();
-	
+
 	if(!mBattery){
 		dzlog_error("Bist BatteryDetect status:%s.",mBattery ? "Passed" : "Failure");
 		//LEDStatus(BIST_BATTERY_ERROR);
@@ -831,7 +951,7 @@ void BistNode::BistLightDetect()
 		}
 	}
 	mScrLight.shutdown();
-	
+
 	if(!mLight){
 		//LEDStatus(BIST_LIGHT_SENSOR_ERROR);
 		dzlog_error("Bist LightDetect status:%s.",mLight ? "Passed" : "Failure");
@@ -911,12 +1031,12 @@ void BistNode::BistIRLightDetect(){
 void BistNode::BistIMUDetect()
 {
 	dzlog_info("\r\n============%s============",__FUNCTION__);
-	
+
 	geometry_msgs::Twist vel;
 	vel.linear.y=0.1;
 	mCmdVel.publish(vel);
 	usleep(1);
-	
+
 	if (!mImuClient){
 		mImuClient=mGlobal->serviceClient<imu_calib>("/imu_calib");
 	}
@@ -935,7 +1055,7 @@ void BistNode::BistIMUDetect()
 		}
 	}
 
-	
+
 	if (!bCalibImu){
 		mIMU = false;
 		//LEDStatus(BIST_IMU_ERROR);
@@ -953,7 +1073,7 @@ void BistNode::BistIMUDetect()
 		}
 	}
 	mScrIMU.shutdown();
-	
+
 	if(!mIMU){
 		//LEDStatus(BIST_IMU_ERROR);
 		dzlog_error("Bist IMUDetect status:%s.",mIMU ? "Passed" : "Failure");
@@ -983,19 +1103,19 @@ void BistNode::BistVideoDetect()
 		dzlog_error("Bist %s (%d) status:%s.",__FUNCTION__,BIST_CAMERA_RESOLUTION_ERROR,mBistVideoRes ? "Passed" : "Failure");
 	}else{
 		//dzlog_info("Bist %s status:%s.",__FUNCTION__,mBistVideo ? "Passed" : "Failure");
-		
+
 
 	//
 #if 0
 		mVideo=mGlobal->subscribe("CoreNode/chargingPile",1,&BistNode::MotorWheelCB,this);
-		
+
 		repeat = 0;
 		status = std::cv_status::timeout;
 		while( std::cv_status::timeout == status ){
 			printf("Bist Video DISTORTION Detect.\r\n");
 			std::unique_lock<std::mutex> lck(mtx);
 			status = cv.wait_for(lck,std::chrono::seconds(5));
-			
+
 			if( (std::cv_status::timeout != status) || (5 < repeat++) ){
 				break;
 			}
@@ -1010,7 +1130,7 @@ void BistNode::BistVideoDetect()
 			printf("Bist Video DISTORTION Detect.\r\n");
 			std::unique_lock<std::mutex> lck(mtx);
 			status = cv.wait_for(lck,std::chrono::seconds(5));
-			
+
 			if( (std::cv_status::timeout != status) || (5 < repeat++) ){
 				break;
 			}
@@ -1021,15 +1141,15 @@ void BistNode::BistVideoDetect()
 				cv::Mat videoMat = cv::imread(BistImage);
 				cv::Mat videoMat1 = cv::imread("1.png");
 				cv::Mat videoMat2 = cv::imread("2.png");
-				
+
 				cv::Mat res_img;
 				cv::resize(videoMat, res_img, cv::Size(640,640), 0, 0, cv::INTER_NEAREST);
-				printf ("%f,%f,%f\r\n", 
+				printf ("%f,%f,%f\r\n",
 				ImagArticulation(videoMat1),ImagArticulation(videoMat2),ImagArticulation(res_img));
 				//960*540 100*100
 				//910,490,1100,590
 				//printf(videoMat.ros);
-				
+
 				if(!videoMat.empty()){
 		//			cv::Rect2f bbox = cv::Rect2f(910,490,100, 100);
 		//			cv::Mat rioImag = videoMat(bbox);
@@ -1089,12 +1209,12 @@ void BistNode::VideoDataCB(roller_eye::frameConstPtr frame)
 	mBistVideoRes = true;
 	//lock_guard<mutex> lk(mBistMutex);
 	std::unique_lock<std::mutex> lck(mtx);
-	cv.notify_all();	
+	cv.notify_all();
 }
 
 void BistNode::BistPCBIMUDetect()
 {
-	dzlog_info("\r\n============%s============",__FUNCTION__);	
+	dzlog_info("\r\n============%s============",__FUNCTION__);
 
 	mScrIMU = mGlobal->subscribe("SensorNode/imu", 1000, &BistNode::imuCB,this);
 	int repeat = 0;
@@ -1107,7 +1227,7 @@ void BistNode::BistPCBIMUDetect()
 		}
 	}
 	mScrIMU.shutdown();
-	
+
 	if(!mIMU){
 		//LEDStatus(BIST_IMU_ERROR);
 		dzlog_error("Bist IMUDetect status:%s.",mIMU ? "Passed" : "Failure");
@@ -1115,22 +1235,41 @@ void BistNode::BistPCBIMUDetect()
 		dzlog_info("Bist IMUDetect status:%s.",mIMU ? "Passed" : "Failure");
 	}
 }
+
+void BistNode::BistOpenSpaceDetect()
+{
+	mOpenSpace = true;
+	mTof=mGlobal->subscribe("SensorNode/tof",1,&BistNode::tofDataCB,this);
+	for (int i=0; i<50; i++){
+		if (!mOpenSpace){
+		    dzlog_info("\r\nOpen space detect fail");
+			break;
+		}
+		usleep(100*1000);
+	}
+
+	if (mOpenSpace){
+		dzlog_info("\r\nOpen space detect succ");
+	}
+	mTof.shutdown();
+}
+
 void BistNode::BistPCBTofDetect()
 {
 	dzlog_info("\r\n============%s============",__FUNCTION__);
 
 	mPCBRange = 0.0;
-	mTof=mGlobal->subscribe("SensorNode/tof",1,&BistNode::tofDataCB,this);	
-	
+	mTof=mGlobal->subscribe("SensorNode/tof",1,&BistNode::tofDataCB,this);
+
 	for (int i =0; i<100;  i++){
 		if (isinf(mPCBRange)  || abs(mPCBRange) > 0.0){
 			mBistTof = true;
 			break;
 		}
 		usleep(100*1000);
-	}	
+	}
 	mTof.shutdown();
-	
+
 	if(!mBistTof){
 		//LEDStatus(BIST_TOF_ERROR);
 		dzlog_error("Bist TofDetect status:%s.",mBistTof ? "Passed" : "Failure");
@@ -1189,17 +1328,7 @@ void BistNode::BistMicrophoneDetect()
 	}
 }
 
-static int g_calibrate_cnt=0;
-static sensor_msgs::Imu g_preIMU;
-#define CALIBRATE_MAX_CNT       500
-#define G_VALUE     9.7833
 
-static Eigen::Vector3d g_gyro_offset(0,0,0);
-static Eigen::Vector3d g_acc_offset(0,0,0);
-static const Eigen::Vector3d G(0,0,G_VALUE);
-static Eigen::Quaterniond g_pose(1,0,0,0);
-static Eigen::Vector3d g_positon(0,0,0);
-static Eigen::Vector3d g_vel(0,0,0);
 
 static Eigen::Quaterniond imuToQuatenion(Eigen::Vector3d &dt)
 {
@@ -1211,15 +1340,21 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
     Eigen::Vector3d accel(msg->linear_acceleration.x,msg->linear_acceleration.y,msg->linear_acceleration.z);
     Eigen::Vector3d gyro(msg->angular_velocity.x,msg->angular_velocity.y,msg->angular_velocity.z);
     if(g_calibrate_cnt++<CALIBRATE_MAX_CNT){
+		g_mtx.lock();
+		g_zCalibra+=msg->angular_velocity.z;
         g_acc_offset+=(accel-G);
         g_gyro_offset+=gyro;
+
         if(g_calibrate_cnt==CALIBRATE_MAX_CNT){
             g_acc_offset/=CALIBRATE_MAX_CNT;
             g_gyro_offset/=CALIBRATE_MAX_CNT;
+			g_zCalibra /= CALIBRATE_MAX_CNT;
 
             std::cout<<"gyro offset:\n"<<g_gyro_offset<<std::endl;
             std::cout<<"acc offset:\n"<<g_acc_offset<<std::endl;
         }
+		g_mtx.unlock();
+
         g_preIMU=*msg;
         return true;
     }
@@ -1241,10 +1376,11 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
         cv::Mat roiGrey=grey(roi);
         cv::Mat clachedGrey;
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
-        clahe->apply(roiGrey,clachedGrey);        
+        clahe->apply(roiGrey,clachedGrey);
 
+    //#define SAVE_IMG 1   //for temp save img  add by ltl 2021-05-10
     #if SAVE_IMG
-        char filenName[128];  
+        char filenName[128];
         static int notFoundCnt = 0;
         static int foundCnt = 0;
     #endif
@@ -1267,7 +1403,7 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
             PLOG_WARN(BACKING_UP_TAG,"corner count error!!!\n");
             return false;
         }
-        
+
         //std::cout<<"roi:("<<roi.x<<","<<roi.y<<","<<roi.height<<","<<roi.width<<") ";
         cornerSubPix(roiGrey,corners,cv::Size(2, 2),cv::Size(-1,-1),cv::TermCriteria(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,30,0.1));
         for(int i=0;i<(int)corners.size();i++){
@@ -1288,7 +1424,7 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
             for(int j=0;j<CHESSBAORD_COL-1;j++){
                 reals.emplace_back(j*CHESSBAORD_SIZE-XOFFSET,i*CHESSBAORD_SIZE-YOFFSET,z);
             }
-        
+
         cv::Mat camK=(cv::Mat_<double>(3,3)<<CAM_K_FX,0.0,CAM_K_CX,0.0,CAM_K_FY,CAM_K_CY,0.0,0.0,1.0);
         cv::Mat distro=(cv::Mat_<double>(4,1)<<DISTRO_K1,DISTRO_K2,DISTRO_P1,DISTRO_P2);
         cv::Mat r,t,R;
@@ -1300,7 +1436,7 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
 #endif
 
         cv::Mat_<float> Tvec;
-        t.convertTo(Tvec, CV_32F);  
+        t.convertTo(Tvec, CV_32F);   //平移向量
 
         angle =  atan2(R.at<double>(1, 0), R.at<double>(0, 0));
 
@@ -1326,7 +1462,7 @@ static bool imuCalibrate(const sensor_msgs::Imu::ConstPtr& msg)
 
         cvMatToEigenRotation(R,rotation);
         Eigen::Matrix3d rot=rotation.transpose();//R^(-1)=R^(T)
-       
+
         trans.x()=t.at<double>(0,0);
         trans.y()=t.at<double>(1,0);
         trans.z()=t.at<double>(2,0);
@@ -1348,7 +1484,7 @@ bool getCameraPose(cv::Mat &Grey,float z,Eigen::Vector3d& pos,cv::Rect2f& roi, f
 	 rect.y=std::max(0,rect.y);
 	 rect.y=std::min(rect.y,grey.rows-1);
 	 rect.height=std::min(rect.height,grey.rows-rect.y);
-	 
+
 	 return calcCameraPoseEx(z,grey,pos,rect, xdist, zdist, angle);
  }
 
@@ -1358,7 +1494,7 @@ bool getHomeDistanceAndAngle(cv::Mat Grey,const AlgoOBjPos &objPos,float &x,floa
 	int i;
 	bool bRet = false;
 	Eigen::Vector3d position;
-	
+
 	//pos = 1.5pos
 	float scale = 0.8;
 	AlgoOBjPos pos = objPos;
@@ -1369,8 +1505,6 @@ bool getHomeDistanceAndAngle(cv::Mat Grey,const AlgoOBjPos &objPos,float &x,floa
 
 	pos.bottom = pos.bottom>pos.height ? pos.height : pos.bottom;
 	pos.right = pos.right>pos.width ? pos.width : pos.right;
-	std::cout << "left: " << pos.left << ", " << pos.top << ", " << pos.right
-				<<", " << pos.bottom <<", "<<pos.width<<", "<<pos.height<<std::endl;
 	cv::Rect2f rio((float)pos.left/pos.width,(float)pos.top/pos.height,(float)(pos.right-pos.left)/pos.width,(float)(pos.bottom-pos.top)/pos.height);
 	cv::Mat MatRio = Grey(rio);
 	cv::imwrite("/userdata/rio.jpg", MatRio);
@@ -1387,7 +1521,7 @@ bool getHomeDistanceAndAngle(cv::Mat Grey,const AlgoOBjPos &objPos,float &x,floa
 //		mAngle = angle;
 //		mROI=rio;
 //		mROIValid=true;
-	}	 
+	}
 #endif
 	PLOG_DEBUG(BACKING_UP_TAG,"getHomeDistanceAndAngle detect mangle=%f, x=%f, z=%f, angle=%f\n",angle,x,z,angle);
 	return bRet;
@@ -1417,7 +1551,7 @@ static void imuDoPoseEstimate(const sensor_msgs::Imu::ConstPtr& msg)
 
     g_positon+=(g_vel*t+a_mid*t*t/2);
     g_vel+=a_mid*t;
-    
+
     for(int i=0;i<3;i++){
         if(abs(g_vel[i])>0){
             g_vel[i]=0;
@@ -1425,8 +1559,8 @@ static void imuDoPoseEstimate(const sensor_msgs::Imu::ConstPtr& msg)
     }
     rt+=t;
     if(rt>0.1){
-        ROS_INFO("P (%f,%f,%f) V(%f,%f,%f),Q(%f,%f,%f,%f)",g_positon.x(),g_positon.y(),g_positon.z(),g_vel.x(),g_vel.y(),g_vel.z(),g_pose.x(),g_pose.y(),g_pose.z(),g_pose.w());
-        ROS_INFO("Accel(%f,%f,%f)",a_mid.x(),a_mid.y(),a_mid.z());
+        // ROS_INFO("P (%f,%f,%f) V(%f,%f,%f),Q(%f,%f,%f,%f)",g_positon.x(),g_positon.y(),g_positon.z(),g_vel.x(),g_vel.y(),g_vel.z(),g_pose.x(),g_pose.y(),g_pose.z(),g_pose.w());
+        // ROS_INFO("Accel(%f,%f,%f)",a_mid.x(),a_mid.y(),a_mid.z());
         rt=0;
 //        g_path.header.frame_id="world";
 //        g_path.header.stamp=msg->header.stamp;
@@ -1472,30 +1606,30 @@ static void imuDoCalcRollAngle(const sensor_msgs::Imu::ConstPtr& msg)
         rt=0;
     }
 
-        double degree = pitch*RAD2DEGREE;  
+        double degree = pitch*RAD2DEGREE;
 //    if (degree<-50){
-//        mAlgo.move(0,-0.02,0.4);  
+//        mAlgo.move(0,-0.02,0.4);
 //    }else if (degree< -40){
-//        mAlgo.move(0,-0.02,0.4);  
+//        mAlgo.move(0,-0.02,0.4);
 //    }else if (degree< -30){
-//        mAlgo.move(0,-0.02,0.3);          
+//        mAlgo.move(0,-0.02,0.3);
 //    }else if (degree< -20){
-//        mAlgo.move(0,-0.02,0.2);          
+//        mAlgo.move(0,-0.02,0.2);
 //    }else if (degree< -10){
-//        mAlgo.move(0,-0.02,0.2);          
+//        mAlgo.move(0,-0.02,0.2);
 //    }else if (degree< -2){
-//        mAlgo.move(0,-0.02,0.2);          
-//    }else if (degree< 2){        
+//        mAlgo.move(0,-0.02,0.2);
+//    }else if (degree< 2){
 //    }else if (degree<10){
-//        mAlgo.move(0,0.02,0.2);              
+//        mAlgo.move(0,0.02,0.2);
 //    }else if (degree<20){
-//        mAlgo.move(0,0.02,0.2);               
+//        mAlgo.move(0,0.02,0.2);
 //    }else if (degree< 30){
-//        mAlgo.move(0,0.02,0.3);               
+//        mAlgo.move(0,0.02,0.3);
 //    }else if (degree< 40){
-//        mAlgo.move(0,0.02,0.4);         
+//        mAlgo.move(0,0.02,0.4);
 //    }else{
-//        mAlgo.move(0,0.02,0.3);         
+//        mAlgo.move(0,0.02,0.3);
 //    }
 }
 
@@ -1511,10 +1645,10 @@ void BistNode::imuCB(const sensor_msgs::Imu::ConstPtr& msg)
 //		 	msg->linear_acceleration.x,
 //		 	msg->linear_acceleration.y,
 //		 	msg->linear_acceleration.z);
-		 	    
+
 	if (1 == mBistType){
 		imuDoPoseEstimate(msg);
-		imuDoCalcRollAngle(msg); 
+		imuDoCalcRollAngle(msg);
 		mIMU = true;
 		std::unique_lock<std::mutex> lck(mtx);
 		cv.notify_all();
@@ -1526,11 +1660,20 @@ void BistNode::imuCB(const sensor_msgs::Imu::ConstPtr& msg)
 			cv.notify_all();
 		}
 	}
-	
+
 }
 
 
 
+void BistNode::imuForMotorCB(const sensor_msgs::Imu::ConstPtr& msg)
+{
+    if(imuCalibrate(msg)){
+        return;
+    }
+
+	double x=msg->linear_acceleration.x-g_acc_offset.x();
+	g_dist += x;
+}
 void BistNode::IlluminanceCB(const sensor_msgs::IlluminanceConstPtr& ptr)
 {
 	//ROS_DEBUG("night mode Illuminance=%f",ptr->illuminance);
@@ -1655,7 +1798,7 @@ void BistNode::processPowerKey(){
             mLastPowerTime=ev.time;
         }else{
             int t=plt_timeval_diff_ms(&ev.time,&mLastPowerTime);
-            if(t>=POWER_KEY_LONGPRESS_TIME){               
+            if(t>=POWER_KEY_LONGPRESS_TIME){
 				dzlog_info("handle processPowerKey.");
 				mPowerKey = true;
             }
@@ -1668,10 +1811,25 @@ void BistNode::tofDataCB(const sensor_msgs::RangeConstPtr &r)
 	if (nTofCnt++>5){
 		mPCBRange = r->range;
 	}
-	//printf("r->range:%f\r\n", r->range);
+
+	float range = r->range;
+	if (range > MAX_VALID_TOF_DIST){
+		range = MAX_VALID_TOF_DIST;
+	}else if (range<0){
+		range = 0;
+	}
+
+    mAvgTof = mAvgTof+(range-mAvgTof)/4;
+
+	if (mAvgTof < 0.25){
+		mOpenSpace = false;
+	}
+
 	if(isinf(r->range)){
 		printf("tofDataCB isinf!!!!!!!!!\r\n");
 		return ;
+	}else{
+		printf("tofDataCB %f\r\n", r->range);
 	}
 	if(!isinf(r->range) && ( 0 < r->range ) ){
 		mRange = r->range;
@@ -1784,7 +1942,7 @@ void BistNode::PCMAnalysis(int type)
                     mStep = STATE_STEP2;
                 }
             } else if (STATE_STEP2 == mStep) {
-                if (sh < 0) {                    
+                if (sh < 0) {
                     mPcmHzs[j]++;
                     mStep = STATE_STEP1;
                     //printf("0mCirclePointCount:%d\r\n",mCirclePointCount);
@@ -1792,7 +1950,7 @@ void BistNode::PCMAnalysis(int type)
             }
         }
     }
-	
+
 	printf("mPcmHzs:%d, %d, %d\r\n",mPcmHzs[0], mPcmHzs[1], mPcmHzs[2]);
 }
 void BistNode::PCMgeneration(){
@@ -1802,7 +1960,7 @@ void BistNode::PCMgeneration(){
 	int fs = 44100 * 2;//sample rate is 44100 2 channel
 	char name[64] = {0};
 	int fd = 0;
-	
+
 	double w = 2 * M_PI * f;
 	double step  = (double)1.0 / (double)fs;
 	memset(name, 0, 64);
@@ -1818,25 +1976,25 @@ void BistNode::PCMgeneration(){
 int BistNode::pcm2wave(const char *pcmpath, int channels, int sample_rate, const char *wavepath)
 {
     typedef struct WAVE_HEADER{
-        char    fccID[4];      
-        unsigned int dwSize;   
-        char    fccType[4];     
+        char    fccID[4];
+        unsigned int dwSize;
+        char    fccType[4];
     }WAVE_HEADER;
 
     typedef struct WAVE_FMT{
-        char    fccID[4];         
-        unsigned int  dwSize;     
-        short int wFormatTag; 
-        short int wChannels;  
+        char    fccID[4];
+        unsigned int  dwSize;
+        short int wFormatTag;
+        short int wChannels;
         unsigned int  dwSamplesPerSec;
         unsigned int  dwAvgBytesPerSec;/* ==dwSamplesPerSec*wChannels*uiBitsPerSample/8 */
-        short int wBlockAlign;//==wChannels*uiBitsPerSample/8
+        short int wBlockAlign;
         short int uiBitsPerSample;
     }WAVE_FMT;
 
     typedef struct WAVE_DATA{
-        char    fccID[4];       
-        unsigned int dwSize;   //==NumSamples*wChannels*uiBitsPerSample/8
+        char    fccID[4];
+        unsigned int dwSize;
     }WAVE_DATA;
 
     if(channels==2 || sample_rate==0)
@@ -1934,9 +2092,9 @@ float BistNode::ImagArticulation(const cv::Mat &image)
 		return 0.0;
 	}
 	cv::Mat imageGrey;
-	
+
 	cv::cvtColor(image, imageGrey, CV_RGB2GRAY);
-	
+
 	Mat frame = imageGrey;
 
 	int cx = frame.cols/2;
@@ -1947,7 +2105,6 @@ float BistNode::ImagArticulation(const cv::Mat &image)
 	frame.convertTo(fImage, CV_32F);
 
 	// FFT
-	cout << "Direct transform...\n";
 	Mat fourierTransform;
 	dft(fImage, fourierTransform, DFT_SCALE|DFT_COMPLEX_OUTPUT);
 
@@ -1988,7 +2145,6 @@ float BistNode::ImagArticulation(const cv::Mat &image)
 	tmp.copyTo(p2);
 
 	// IFFT
-	cout << "Inverse transform...\n";
 	Mat invFFT;
 	Mat logFFT;
 	double minVal,maxVal;
@@ -2010,7 +2166,7 @@ float BistNode::ImagArticulation(const cv::Mat &image)
 
 	//result = numpy.mean(img_fft)
 	cv::Scalar result= cv::mean(logFFT);
-	cout << "Result : "<< result.val[0] << endl;
+	// cout << "Result : "<< result.val[0] << endl;
 
 //    Mat finalImage;
 //    logFFT.convertTo(finalImage, CV_8U);    // Back to 8-bits
@@ -2126,7 +2282,7 @@ void BistNode::BistDiskDetect()
 		//LEDStatus(BIST_BATTERY_ERROR);
 	}else{
 		dzlog_info("Bist MemDetect status:%s.",mDisk ? "Passed" : "Failure");
-	}	
+	}
 	printf("BistDiskDetect: %f %f %d\r\n",fDisk, DISK_SIZE,mDisk);
 }
 
@@ -2140,7 +2296,7 @@ void BistNode::BistDriveMotor()
 		int nCnt = 0;
 		while(mMotorWheel){
 			geometry_msgs::Twist vel;
-			vel.linear.x = 0;		
+			vel.linear.x = 0;
 			if (nCnt>40){
 				nCnt = 0;
 				vel.linear.y = 0;
@@ -2148,10 +2304,10 @@ void BistNode::BistDriveMotor()
 				vel.linear.y = -0.15;
 			}else{
 				vel.linear.y = 0.15;
-			}		
+			}
 			mCmdVel3.publish(vel);
-			usleep(100*1000);	
-		
+			usleep(100*1000);
+
 		}
 	});
 	th.detach();
@@ -2178,7 +2334,7 @@ int main(int argc, char **argv)
     ros::console::set_logger_level("BistNode",ros::console::levels::Debug);
 
     ros::NodeHandle nh;
-	
+
     g_BistNode = shared_ptr<BistNode>(new BistNode());
     ros::spin();
     return 0;

@@ -2,7 +2,6 @@
 #define __ROLLER_EYE_SINGLE_CLASS_H__
 #include<mutex>
 
-
 using namespace std;
 namespace roller_eye{
 template<class T>
@@ -29,7 +28,7 @@ protected:
 
     static T* mInst;
     static mutex mMutex;
-}; 
+};
 template<class T>
 T*  SingleClass<T>::mInst=nullptr;
 template<class T>

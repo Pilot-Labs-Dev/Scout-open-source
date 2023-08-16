@@ -139,7 +139,7 @@ namespace roller_eye
       unsigned long long totalBlocks = diskInfo.f_bsize;
       unsigned long long freeDisk = diskInfo.f_bfree * totalBlocks;
 
-      PLOG_DEBUG(APP_NODE_TAG, "%s freeSpace:%lldMB", dirName.c_str(), freeDisk / 1024 / 1024 );
+      PLOG_DEBUG(APP_NODE_TAG, "%s freeSpace:%ldMB", dirName.c_str(), freeDisk / 1024 / 1024 );
 
       *free = freeDisk;
       return true;
@@ -170,65 +170,47 @@ namespace roller_eye
 
       return resultStr;
     }
-  int api_get_thread_policy (pthread_attr_t *attr)
-  {
-    int policy;
-    int rs = pthread_attr_getschedpolicy (attr, &policy);
-    assert (rs == 0);
 
-    switch (policy)
+    int getSignal()
     {
-        case SCHED_FIFO:
-            printf ("policy = SCHED_FIFO\n");
-            break;
-        case SCHED_RR:
-            printf ("policy = SCHED_RR");
-            break;
-        case SCHED_OTHER:
-            printf ("policy = SCHED_OTHER\n");
-            break;
-        default:
-            printf ("policy = UNKNOWN\n");
-            break; 
+        char status[256]={0};   
+
+        int rval = 0;
+        string cmd = "iwconfig wlan0";
+        FILE* fcmd=popen(cmd.c_str(),"r");
+        if(fcmd==NULL){
+            PLOG_ERROR(APP_NODE_TAG,"Open %s\n", cmd.c_str());
+            return rval;     
+        }   
+
+        char* t = NULL;
+        while (!feof(fcmd)){        
+            if (fgets(status,sizeof(status),fcmd) == NULL){
+                usleep(10*1000);
+                continue;
+            }
+            if((t=const_cast<char*>(strrchr(status,'\n')))==NULL){
+                PLOG_ERROR(APP_NODE_TAG,"%s %d Line Over Flow or reach EOF\n", __FILE__, __LINE__);
+                continue;
+            }else if (NULL != strstr(status, "Not-Associated")) {
+                break;
+            }else if (NULL != strstr(status, "Signal level")) {
+                string str = status;
+                int pos = str.find("Signal level=");
+                string value;
+                if (pos>0){
+                    pos += strlen("Signal level=");
+                    int pos1 = str.find("dBm",pos);
+                    value = str.substr(pos,pos1-pos);
+                    rval = atoi(value.c_str());
+                }
+                break;
+            }
+            //PLOG_INFO(APP_NODE_TAG,"%s %d %s\n", __FILE__, __LINE__, status);
+        }
+        PLOG_INFO(APP_NODE_TAG,"quit getSignal %d", rval);
+        pclose(fcmd);
+        return rval;
     }
-    return policy;
-}
 
-void api_show_thread_priority (pthread_attr_t *attr,int policy)
-{
-    int priority = sched_get_priority_max (policy);
-    assert (priority != -1);
-    printf ("max_priority = %d\n", priority);
-    priority = sched_get_priority_min (policy);
-    assert (priority != -1);
-    printf ("min_priority = %d\n", priority);
-}
-
-int api_get_thread_priority (pthread_attr_t *attr)
-{
-    struct sched_param param;
-    int rs = pthread_attr_getschedparam (attr, &param);
-    assert (rs == 0);
-    printf ("priority = %d\n", param.__sched_priority);
-    return param.__sched_priority;
-}
-
-int api_set_thread_priority (pthread_attr_t *attr, int priority)
-{
-    struct sched_param param;
-    int rs = pthread_attr_getschedparam (attr, &param);
-    assert (rs == 0);
-    param.__sched_priority = priority;
-    rs = pthread_attr_setschedparam(attr, &param);
-    assert (rs == 0);
-    printf ("set priority = %d\n", param.__sched_priority);
-    return rs;
-}
-
-void api_set_thread_policy (pthread_attr_t *attr,int policy)
-{
-    int rs = pthread_attr_setschedpolicy (attr, policy);
-    assert (rs == 0);
-    api_get_thread_policy (attr);
-}
 };

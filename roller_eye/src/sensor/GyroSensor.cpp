@@ -165,10 +165,12 @@ void GyroSensor::readCalibration()
         return;
     }
 
+    // PLOG_ERROR(GYRO_TAG,"don't GyroSensor readCalibration!");
+    // return;
+
     int result = ioctl(dev_fd, L3G4200D_IOCTL_GET_CALIBRATION, &gyro_offset);
     if (result < 0){
-        PLOG_ERROR(GYRO_TAG,"fail to perform L3G4200D_IOCTL_GET_CALIBRATION");
-    }else{
-        PLOG_INFO(GYRO_TAG,"gyro calibration is %d, %d, %d\n", gyro_offset[0], gyro_offset[1], gyro_offset[2]);
-    }
+        PLOG_ERROR(GYRO_TAG,"fail to perform L3G4200D_IOCTL_GET_CALIBRATION");}
+    else{
+        PLOG_INFO(GYRO_TAG,"gyro calibration is %d, %d, %d\n", gyro_offset[0], gyro_offset[1], gyro_offset[2]);}
 }

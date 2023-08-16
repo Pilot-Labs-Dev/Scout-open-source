@@ -32,10 +32,18 @@ wpa_supplicant -i $INTERFACE_NAME -c /etc/wpa_supplicant/wpa_supplicant.conf &
 
 ssid="$1"
 psk="$2"
+bssid=""
 empty_psk='""'
 
 echo $ssid
 echo $psk
+echo $bssid
+
+if [ ! $bssid ]; then
+  echo "bssid IS NULL"
+else
+  echo "bssid NOT NULL"
+fi
 
 function exit_connect()
 {
@@ -50,7 +58,7 @@ do
 	if [ "$?" == "0" ];then
 		echo "add network ok..."
 		break
-	fi	
+	fi
 	if [ "$times" != "$MAX_WAIT_TIME" ];then
 		echo "wait add network ..."
 		sleep 1
@@ -59,6 +67,27 @@ do
 		exit_connect
 	fi
 done
+
+if [ ! $bssid ]; then
+  echo "bssid IS NULL"
+else
+	for((times=1;times<=$MAX_WAIT_TIME;times++))
+	do
+		res=$(wpa_cli -i $INTERFACE_NAME bssid $net_id  "$bssid")
+
+		if [ "$res" == "OK" ];then
+			echo "set bssid ok ..."
+			break
+		fi
+		if [ "$times" != "$MAX_WAIT_TIME" ];then
+			echo "wait set bssid ..."
+			sleep 1
+		else
+			echo "set bssid fail .."
+			exit_connect
+		fi
+	done
+fi
 
 for((times=1;times<=$MAX_WAIT_TIME;times++))
 do
@@ -112,6 +141,8 @@ do
 		exit_connect
 	fi
 done
+
+wpa_cli -i $INTERFACE_NAME select_network $net_id
 
 for((times=1;times<=$MAX_WAIT_TIME;times++))
 do

@@ -35,7 +35,7 @@ namespace roller_eye
 		uint8_t Data[PCM_BUF_LEN];
 	}AACData;
 
-class SpeakerNode{   
+class SpeakerNode{
     public:
     SpeakerNode();
     ~SpeakerNode();
@@ -51,23 +51,23 @@ private:
     void AAC2PCMLoop();
     int set_hardware_params(uint32_t sample_rate, int channels, int format_size);
     void OnCmd(const std_msgs::Int32::ConstPtr& msg);
-    
+
     void OnFrame(const roller_eye::frameConstPtr& msg);
     shared_ptr<AACData> GetAACFrame();
-    
+
     void PutPCM(shared_ptr<pcmData> PCMData);
     shared_ptr<pcmData> GetPCM();
 
     pcmData* GetPcmBuf(std::queue<pcmData*>& que);
     void PushPcm(pcmData* pcm, std::queue<pcmData*>& que);
     std::vector<uint8_t> GetFrame();
-    
+
     void ThreadInfo(char *function);
 
-    // std::thread mDecoderThread;    
+    // std::thread mDecoderThread;
     // std::thread mPlayThread;
     //rmwei add .
-    std::shared_ptr<std::thread> m_DecoderThread = nullptr;    
+    std::shared_ptr<std::thread> m_DecoderThread = nullptr;
     std::shared_ptr<std::thread>  m_PlayThread = nullptr;
 
     bool mRunning = false;
@@ -75,27 +75,27 @@ private:
     mutex mPcmMutex;
 
     mutex mCMDMutex;
-    
+
     mutex mPlayLoopMutex;
 	mutex mAAC2PCMLoopMutex;
-	
+
     int mBufsize = 0;
-    snd_pcm_t *mHandle=nullptr;  
-    snd_pcm_hw_params_t *mParams=nullptr; 
-    
-    snd_pcm_uframes_t mFrames;   
+    snd_pcm_t *mHandle=nullptr;
+    snd_pcm_hw_params_t *mParams=nullptr;
+
+    snd_pcm_uframes_t mFrames;
    //ros::NodeHandle mGlobal;
    ros::Subscriber mCmdSub;
    ros::Subscriber mFrameSub;
 
    std::queue< shared_ptr<AACData> > mAACQue;
    std::queue< shared_ptr<pcmData> > mPCMQue;
-   
+
    std::queue<std::vector<uint8_t>> mframeQue;
    std::queue<std::vector<uint8_t>> mlvPcm;
 
    std::queue<pcmData*> mpcmFreeQue;
-   
+
    std::queue<pcmData*> mpcmQue;
    shared_ptr<ros::NodeHandle> mGlobal;
    shared_ptr<SoundEffectsMgr>  mSEM;

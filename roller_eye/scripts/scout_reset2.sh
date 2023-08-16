@@ -3,7 +3,7 @@
 SCOUT_DEFAULT_CONFIG_DIR="/var/roller_eye/config/"
 SCOUT_DYNAMIC_DATA_DIR="/userdata/roller_eye/"
 
-touch "/userdata/scout_resetting" 
+touch "/userdata/scout_resetting"
 
 sync
 sleep 3
@@ -20,9 +20,10 @@ rm $SCOUT_DEFAULT_CONFIG_DIR"userID"
 rm $SCOUT_DEFAULT_CONFIG_DIR"lastPatrolName"
 
 #echo "a" > $SCOUT_DEFAULT_CONFIG_DIR"userID"
-cp $SCOUT_DEFAULT_CONFIG_DIR"motion_default.json" $SCOUT_DEFAULT_CONFIG_DIR"motion"
 cp $SCOUT_DEFAULT_CONFIG_DIR"monitor_default.json" $SCOUT_DEFAULT_CONFIG_DIR"monitor"
 cp $SCOUT_DEFAULT_CONFIG_DIR"video_default.yaml" $SCOUT_DEFAULT_CONFIG_DIR"video.yaml"
+cp $SCOUT_DEFAULT_CONFIG_DIR"soundEffect_default.json" $SCOUT_DEFAULT_CONFIG_DIR"soundEffect"
+# cp $SCOUT_DEFAULT_CONFIG_DIR"motion_default" $SCOUT_DEFAULT_CONFIG_DIR"motion"
 
 sync
 

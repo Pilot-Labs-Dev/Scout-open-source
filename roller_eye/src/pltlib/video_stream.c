@@ -25,7 +25,7 @@
 #include "rkisp_control_loop.h"
 #endif
 
-#define LOGI(fmt,...) 
+#define LOGI(fmt,...)
 #define LOGD(fmt,...)   PLOG_WARN("videostream",fmt,##__VA_ARGS__)
 #define LOGE(fmt,...)   do{pset_errno(PESYS);PLOG_ERROR("videostream",fmt,##__VA_ARGS__);}while(0)
 #define LOGE_RET(fmt,code)   do{pset_errno(PESYS);PLOG_ERROR("videostream",fmt);return (code);}while(0)
@@ -145,9 +145,9 @@ static int enumVideoFmt(int fd,int type)
     while(ioctl(fd,VIDIOC_ENUM_FMT,&desc)!=-1)
     {
         desc.index++;
-        
+
         LOGI("desc:%s,fmt:[%c,%c,%c,%c]\n",desc.description,(desc.pixelformat)&0xff,(desc.pixelformat>>8)&0xff,(desc.pixelformat>>16)&0xff,(desc.pixelformat>>24)&0xff);
-       
+
     }
      LOGI("------\n");
 
@@ -213,7 +213,7 @@ static int requestBuff(int fd,int type,int count)
     req.memory=V4L2_MEMORY_MMAP;
 
     LOGD("Request buff count=%d\n",count);
-    
+
     int ret = ioctl(fd,VIDIOC_REQBUFS,&req);
     if(ret < 0)
     {
@@ -231,7 +231,7 @@ static int mapBuff(int fd,int type,int index,FrameBuff *frameBuff)
 
     memset(frameBuff,0,sizeof(*frameBuff));
     memset(&buf,0,sizeof(buf));
-    
+
     buf.index = index;
     buf.type = type;
     buf.memory=V4L2_MEMORY_MMAP;
@@ -275,7 +275,7 @@ static int pushBuff(int fd,int type,int index)
     struct v4l2_plane planes[VIDEO_MAX_PLANES];
 
     memset(&buf,0,sizeof(buf));
-    
+
     buf.index = index;
     buf.type = type;
     buf.memory=V4L2_MEMORY_MMAP;
@@ -300,10 +300,10 @@ static int pullBuff(int fd,int type,struct timeval* stamp)
     struct v4l2_plane planes[VIDEO_MAX_PLANES];
 
     memset(&buf,0,sizeof(buf));
-    
+
     buf.type = type;
     buf.memory=V4L2_MEMORY_MMAP;
-    if (type==V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) 
+    if (type==V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
     {
         memset(planes, 0, sizeof(planes));
         buf.m.planes = planes;
@@ -324,7 +324,7 @@ static int startStream(int fd,int type)
     {
         LOGE_RET("StartStream\n",-1);
     }
-    
+
     return 0;
 }
 /*
@@ -334,7 +334,7 @@ static int stopStream(int fd,int type)
     {
         LOGE_RET("StartStream\n",-1);
     }
-    
+
     return 0;
 }
 */
@@ -343,7 +343,7 @@ static int mallocMapBuff(Camera *camera)
     int i;
     FrameBuff *buf;
     CaputreParam *param=&camera->param;
-   
+
     if((camera->buff==NULL) && (camera->buff = (FrameBuff*)calloc(param->v4l2BuffCount,sizeof(FrameBuff)))==NULL)
     {
         LOGD("Malloc Map Buff Fail\n");
@@ -441,7 +441,7 @@ static int mallocBuffCtl(Camera *camera,int frameSize)
             camera->freeCtl=camera->freeCtl->next;
             free(ctl->buff.addr);
             free(ctl);
-            
+
         }
     }
 
@@ -472,7 +472,7 @@ static void freeBuffCtl(Camera *camera)
         ctl=camera->freeCtl;
         camera->freeCtl=camera->freeCtl->next;
         reclaimBuffCtl(ctl);
-        
+
     }
     //delay reclaim
     while(camera->usedCtl!=NULL)
@@ -539,7 +539,7 @@ static int initCamera(Camera *camera)
 #endif
 
     if(startStream(camera->devFd,camera->capType) < 0)
-    { 
+    {
         return -1;
     }
 
@@ -591,7 +591,7 @@ static void video_stream_unref_camera(CMHandle handle)
         rk_isp_destory(camera->rkisp);
 #endif
         LOGI("camera ref zero,destroy camera\n");
-        
+
         pthread_mutex_unlock(&camera->ctlMutex);
 
         if(pthread_cond_destroy(&camera->freeCond)!=0)
@@ -615,7 +615,7 @@ static void video_stream_unref_camera(CMHandle handle)
     {
         pthread_mutex_unlock(&camera->ctlMutex);
     }
-    
+
 }
 
 static int video_stream_ref_camera(Camera *camera)
@@ -719,7 +719,7 @@ static int returnBuffCtl(VideoStream *stream,FrameBuffCtl *ctl)
     }
 
     ret = unrefBuffCtl(camera,ctl);
-    
+
     pthread_mutex_unlock(&ctl->mutex);
 
     if(ret==1)//reclaim
@@ -734,7 +734,7 @@ static void postAllVideoStreamFrame(Camera *camera,FrameBuffCtl *ctl)
     int ret;
     VideoStream *stream;
     FrameQueue *queue;
-    
+
     if(pthread_mutex_lock(&ctl->mutex)!=0)
     {
         LOGD("Lock Frame Ctl Fail\n");
@@ -771,7 +771,7 @@ static void postAllVideoStreamFrame(Camera *camera,FrameBuffCtl *ctl)
                     }
                     queue->size--;
                 }
-                
+
                 {
                     queue->head[queue->writeIdx]=ctl;
                     if(queue->writeIdx==queue->cap-1)
@@ -806,7 +806,7 @@ static void postAllVideoStreamFrame(Camera *camera,FrameBuffCtl *ctl)
     {
         LOGD("Lock Camera Fail\n");
     }
-    
+
     ret=unrefBuffCtl(camera,ctl);
 
     pthread_mutex_unlock(&ctl->mutex);
@@ -847,7 +847,7 @@ static FrameBuffCtl* getFreeFrame(Camera *camera)
     {
         ctl=NULL;
     }
-    
+
     pthread_mutex_unlock(&camera->freeMutex);
 
     return ctl;
@@ -858,7 +858,7 @@ static void* caputureCameraLoop(void* args)
     struct timeval stamp;
     FrameBuffCtl *ctl;
     Camera *camera=(Camera*)args;
-    
+
     LOGD("Camera Caputure Thread Started...\n");
 
     pthread_detach(pthread_self());
@@ -1016,7 +1016,7 @@ freeHandle:
 void video_stream_destory_camera(CMHandle handle)
 {
     Camera *camera=(Camera*)handle;
-   
+
     if(camera==NULL)
     {
         LOGD("NULL camera Handle\n");
@@ -1040,7 +1040,7 @@ void video_stream_destory_camera(CMHandle handle)
 int video_stream_get_camera_param(CMHandle handle,CaputreParam *param)
 {
     Camera *camera=(Camera*)handle;
-    
+
     if(camera==NULL)
     {
         LOGD("NULL camera Handle\n");
@@ -1060,7 +1060,7 @@ int video_stream_get_camera_fd(CMHandle handle)
 {
     int fd;
     Camera *camera=(Camera*)handle;
-    
+
     if(camera==NULL)
     {
         LOGD("NULL camera Handle\n");
@@ -1076,7 +1076,7 @@ int video_stream_get_camera_fd(CMHandle handle)
     fd = camera->devFd;
 
     pthread_mutex_unlock(&camera->ctlMutex);
-    
+
     return fd;
 }
 static int initFrameQueue(FrameQueue *queue,int size)
@@ -1115,6 +1115,7 @@ desMutex:
 static void destroyFrameQueue(VideoStream *stream)
 {
 
+    LOGD("destroyFrameQueue enter 0x%x\n", stream);
     int i;
     FrameQueue *queue=&stream->queue;
     if(pthread_mutex_lock(&queue->mutex)!=0)
@@ -1168,7 +1169,7 @@ static int attachVideoStream(VideoStream *stream,Camera *camera)
     {
         LOGD("Too Many Streams\n");
     }
-    
+
     pthread_mutex_unlock(&camera->ctlMutex);
     return ret;
 }
@@ -1180,7 +1181,7 @@ static void detachVideoStream(VideoStream *stream)
     {
         LOGD("Lock Camera Fail\n");
     }
-    
+
     for(item=camera->head,pre=NULL;item!=NULL;pre=item,item=item->next)
     {
         if(item==stream)
@@ -1236,17 +1237,19 @@ VSHandle video_stream_create(CMHandle handle,int buffCount)
     {
         buffCount=camera->param.defaultCount;
     }
+    LOGI("Video Stream Buff Count=%d\n",buffCount);
 
+    LOGD("initFrameQueue 0x%x start\n",stream);
     if(initFrameQueue(&stream->queue,buffCount)<0)
     {
         goto freeHandle;
     }
-
+    LOGD("initFrameQueue 0x%x\n",stream);
     if(attachVideoStream(stream,camera)<0)
     {
         goto desQueue;
     }
-    
+
     return (VSHandle)stream;
 desQueue:
     destroyFrameQueue(stream);
@@ -1265,7 +1268,7 @@ void video_stream_destory(VSHandle handle)
         LOGD("NULL Video Stream\n");
         return ;
     }
-    detachVideoStream(stream);    
+    detachVideoStream(stream);
     destroyFrameQueue(stream);
     video_stream_unref_camera(stream->camera);
     free(stream);
@@ -1287,12 +1290,12 @@ FrameBuff* video_stream_get_frame(VSHandle handle)
         LOGD("Lock Queue Fail\n");
         return NULL;
     }
- 
+
     while(queue->size==0&&stream->camera->threadFlag!=0)
     {
         if(pthread_cond_wait(&queue->cond,&queue->mutex)<0) {
             break;
-        } else {            
+        } else {
             continue;
         }
     }

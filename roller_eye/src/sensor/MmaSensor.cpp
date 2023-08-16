@@ -179,6 +179,8 @@ void MmaSensor::readCalibration()
         return;
     }
 
+    // PLOG_ERROR(ACC_TAG,"don't MmaSensor readCalibration!");
+    // return;
 
     int result = ioctl(dev_fd, GSENSOR_IOCTL_GET_CALIBRATION, &accel_offset);
     if (result < 0){

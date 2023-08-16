@@ -11,14 +11,14 @@
 namespace roller_eye{
 const char* WIFI_TAG="wifi";
 
-class CompGreater 
-{ 
-public: 
-    bool operator ()(const WiFiInFo& info1, const WiFiInFo& info2) 
-    { 
-        return info1.signal > info2.signal; 
-    }   
-}; 
+class CompGreater
+{
+public:
+    bool operator ()(const WiFiInFo& info1, const WiFiInFo& info2)
+    {
+        return info1.signal > info2.signal;
+    }
+};
 
 WiFiOps::Eventlistener::Eventlistener()
 {
@@ -41,7 +41,6 @@ void WiFiOps::run()
         PLOG_ERROR(WIFI_TAG,"no sn don't config wifi..\n");
         return;
     }
-
     thread th([](WiFiOps* ops){
         thread loop([](WiFiOps* ops){
             ops->runLoop();
@@ -67,16 +66,11 @@ void WiFiOps::cmdProc()
     mOps.ops = WIFI_OPS_NONE;
     mMutex.unlock();
     if (cmd->ops != WIFI_OPS_NONE){
+        resetIsSwitch();
         handleCmd(cmd);
     }
 }
 
-int WiFiOps::stopWiFi()
-{
-     auto cmd=make_shared<Ops>();
-     cmd->ops=WIFI_OPS_STOP;
-     return mOpsQueue.pushNoblock(cmd);
-}
 int WiFiOps::addSSIDKey(int mode,string& ssid,string& key)
 {
     lock_guard<mutex> lock(mMutex);
@@ -95,7 +89,7 @@ void WiFiOps::clearOps()
     mMutex.unlock();
 }
 int WiFiOps::switchMode(int mode)
-{   
+{
     lock_guard<mutex> lock(mMutex);
     switch(mOps.ops){
         case WIFI_OPS_SWITCH:
@@ -115,12 +109,12 @@ int WiFiOps::switchMode(int mode)
     mOps.ops     = WIFI_OPS_SWITCH;
     mOps.mode = mode;
     setIsSwitch();
-    ROS_INFO("switchMode %d %s:%d %s\n",mode, __FILE__, __LINE__,__FUNCTION__);
+    PLOG_INFO(APP_NODE_TAG,"switchMode %d\n",mode);
     return 0;
 }
 
 int WiFiOps::switchMode(int mode,string& ssid,string& key)
-{    
+{
     lock_guard<mutex> lock(mMutex);
     mOps.ssid = ssid;
     mOps.key  = key;
@@ -128,138 +122,127 @@ int WiFiOps::switchMode(int mode,string& ssid,string& key)
     mOps.mode = mode;
 
     setIsSwitch();
-    ROS_INFO("switchMode %d %s %s %s:%d %s\n",mode, ssid.c_str(), key.c_str(),  
-                              __FILE__, __LINE__,__FUNCTION__);
+    PLOG_INFO(APP_NODE_TAG,"switchMode %d %s %s\n",mode, ssid.c_str(), key.c_str());
     return 0;
 }
 
 void WiFiOps::setListener(Eventlistener* lisnter)
 {
-    mListener=lisnter;   
+    mListener=lisnter;
 }
 WiFiOps::WiFiOps():
 mListener(nullptr),
-mWiFiMode(WIFI_MODE_UNKOWN),
 mOpsQueue(MAX_WIFI_CMD_SIZE),
-mRuning(false)
+mRuning(false),
+mWiFiMode(WIFI_MODE_UNKOWN),
+mStatus(WIFI_EVENT_STOP)
 {
-
+    clearOps();
 }
 WiFiOps::~WiFiOps()
 {
     if(mListener!=nullptr){
         delete mListener;
-    }  
+    }
 }
  WPAWiFiOps::WPAWiFiOps():mStaReady(false), mLastestMode(WIFI_MODE_STA), mRunScripting(false),
  mRunAnaly(false)
  {
      mConfig=PltConfig::getInstance();
-     mConfig->getWiFis(mWiFis);       
+     mConfig->getWiFis(mWiFis);
  }
 WPAWiFiOps::~WPAWiFiOps()
 {
 
 }
 
-void WPAWiFiOps::updateWiFis(const string& ssid,const string& key)
-{
-    mSsid = ssid;
-    mKey  = key; 
-    ROS_INFO("WiFi updateWiFis %s %s %s:%d %s\n",ssid.c_str(), key.c_str(), __FILE__ ,__LINE__,__FUNCTION__);
-    updateWiFis();
-}
 void WPAWiFiOps::updateWiFis(bool bUpdate)
 {
     if (mSsid.empty()){
         return;
     }
-    
+
     string ssid = mSsid;
-    string key = mKey;  
-    ROS_INFO("WiFi updateWiFis %s %s %s:%d %s\n",ssid.c_str(), key.c_str(), __FILE__ ,__LINE__,__FUNCTION__);
-      
+    string key = mKey;
+    // ROS_INFO("WiFi updateWiFis %s %s %s:%d %s\n",ssid.c_str(), key.c_str(), __FILE__ ,__LINE__,__FUNCTION__);
+
     if(!bUpdate){
         mSsid.erase();
-        mKey.erase();    
+        mKey.erase();
         return;
     }
 
     bool bExist = false;
     if (!mSsid.empty()){
-        for (int i=0; i<static_cast<int>(mWiFis.size()); i+=2){
+        for (int i=0; i<mWiFis.size(); i+=2){
             if (mSsid == mWiFis[i]){
                 bExist = true;
                 break;
             }
-        }   
+        }
     }
-    
+
     if (!bExist){
         mWiFis.push_back(ssid);
         mWiFis.push_back(key);
-        ROS_INFO("WiFi updateWiFis %s %s %s:%d %s\n",ssid.c_str(), key.c_str(), __FILE__ ,__LINE__,__FUNCTION__);
+        // ROS_INFO("WiFi updateWiFis %s %s %s:%d %s\n",ssid.c_str(), key.c_str(), __FILE__ ,__LINE__,__FUNCTION__);
         mConfig->updateWiFis(mWiFis);
     }
 
     mSsid.erase();
-    mKey.erase();    
+    mKey.erase();
 }
 
 bool WPAWiFiOps::isDisconnect()
 {
-    char status[256]={0};   
+    char status[256]={0};
 
     int rval = 0;
     string cmd = "iwconfig wlan0";
     FILE* fcmd=popen(cmd.c_str(),"r");
     if(fcmd==NULL){
         PLOG_ERROR(APP_NODE_TAG,"Open %s\n", cmd.c_str());
-        return true;     
-    }   
+        return true;
+    }
 
     char* t = NULL;
-    while (!feof(fcmd)){        
+    while (!feof(fcmd)){
         if (fgets(status,sizeof(status),fcmd) == NULL){
             usleep(10*1000);
             continue;
         }
         if((t=const_cast<char*>(strrchr(status,'\n')))==NULL){
-            PLOG_ERROR(WIFI_TAG,"%s %d Line Over Flow or reach EOF\n", __FILE__, __LINE__);
+            PLOG_ERROR(WIFI_TAG,"Line Over Flow or reach EOF\n");
             continue;
         }else if (NULL != strstr(status, "Access Point: Not-Associated")) {
+            PLOG_INFO(WIFI_TAG,"isDisconnect: %s\n", status);
+            pclose(fcmd);
             return true;
+        }else if (NULL != strstr(status ,"Access Point")){
+            //PLOG_INFO(WIFI_TAG,"isDisconnect: %s\n", status);
+        }else if (NULL != strstr(status ,"Signal level")){
+            //PLOG_INFO(WIFI_TAG,"isDisconnect: %s\n", status);
         }
     }
-    fclose(fcmd);   
+    pclose(fcmd);
     return false;
 }
 
 void WPAWiFiOps::runLoop()
 {
-    char status[512]={0};   
+    char status[512]={0};
 
     system(CMD_PREFIX"killall wpa_cli");
     sleep(3);
 
-    ROS_INFO("WiFi runLoop switchMode %s:%d %s\n",__FILE__, __LINE__,__FUNCTION__);
+    PLOG_INFO(WIFI_TAG,"WiFi runLoop switchMode \n");
     switchMode(mWiFis.empty()?WIFI_MODE_AP:WIFI_MODE_STA);
-
-    while(true){
-        if (mRunAnaly){  
-            if (isDisconnect()){
-                stopScript(1);
-                mListener->onEvent(WIFI_MODE_STA,WIFI_EVENT_DISCONNECT);
-                switchMode(mWiFis.empty()?WIFI_MODE_AP:WIFI_MODE_STA);
-            }   
-        }           
-        usleep(200*1000);
-    }
-    ROS_INFO("quit WPAWiFiOps::runLoop() ");
+   PLOG_INFO(WIFI_TAG,"quit WPAWiFiOps::runLoop() ");
 }
 
 void WPAWiFiOps::stopScript(int kill)
 {
+        PLOG_INFO(WIFI_TAG,"%d\n",  kill);
         switch(kill){
             case 1:
             mRunAnaly = false;
@@ -273,20 +256,66 @@ void WPAWiFiOps::stopScript(int kill)
         }
 }
 
+void WPAWiFiOps::updateScanResult(vector<WiFiInFo> vWifi)
+{
+    lock_guard<mutex> lock(mMutex);
+    m_qvWifis.push(vWifi);
+    if (m_qvWifis.size() > 6){
+        m_qvWifis.pop();
+    }
+}
+
+
+string WPAWiFiOps::getBssid(const string& ssid)
+{
+    int dbm = -200;
+    string bssid;
+    lock_guard<mutex> lock(mMutex);
+    bool is11g = false;
+    for (auto i=0; i<m_qvWifis.size(); i++){
+        vector<WiFiInFo> wifis = m_qvWifis.front();
+        m_qvWifis.pop();
+        m_qvWifis.push(wifis);
+        for (auto wifi:wifis){
+            if (ssid == wifi.ssid){
+
+                PLOG_INFO(WIFI_TAG,"ssid: %s, freq: %f, bssid: %s \n", ssid.c_str(), wifi.bssid.c_str(), wifi.freq);
+                if (is11g && wifi.freq>=5){
+                    continue;
+                }
+
+                if ((!is11g &&wifi.freq<5) ||
+                        wifi.signal > dbm){
+                    PLOG_INFO(WIFI_TAG,"ssid: %s, freq: %f, bssid: %s  signal: %d\n", ssid.c_str(), wifi.bssid.c_str(), wifi.freq, wifi.signal);
+                    dbm = wifi.signal;
+                    bssid = wifi.bssid;
+                }
+
+                if (wifi.freq<5){
+                    is11g = true;
+                }
+            }
+        }
+    }
+
+    return bssid;
+}
+
 int WPAWiFiOps::runScript(const string& cmd)
 {
-      char status[1024]={0};   
+      char status[1024]={0};
 
 //#define RETURNED_VALUE "__returned_value_"
 #define EXEC_SUCC "start wifi ok"
 #define EXEC_FAIL "start wifi fail"
 
+    PLOG_INFO(WIFI_TAG,"%s\n",  cmd.c_str());
     int rval = -1;
     FILE* fcmd=popen(cmd.c_str(),"r");
     if(fcmd==NULL){
         PLOG_ERROR(WIFI_TAG,"Open %s\n", cmd.c_str());
-        return rval;     
-    }   
+        return rval;
+    }
 
     lock_guard<mutex> lock(mMutex);
     int fd = fileno(fcmd);
@@ -295,9 +324,9 @@ int WPAWiFiOps::runScript(const string& cmd)
     flags |= O_NONBLOCK;
     fcntl(fd, F_SETFL, flags);
     mRunScripting = true;
-    
+
     char* t = NULL;
-    while (mRunScripting && !feof(fcmd)){        
+    while (mRunScripting && !feof(fcmd)){
         if (fgets(status,sizeof(status),fcmd) == NULL){
             usleep(10*1000);
             continue;
@@ -312,14 +341,18 @@ int WPAWiFiOps::runScript(const string& cmd)
             rval = -1;
             break;
         }
+        PLOG_INFO(WIFI_TAG,"%s\n",  status);
     }
-    fclose(fcmd);   
+    PLOG_INFO(WIFI_TAG,"quit runScript");
+
+    pclose(fcmd);
     mRunScripting = false;
     return rval;
 }
 
 void  WPAWiFiOps::handleCmd(shared_ptr<Ops> cmd)
 {
+    PLOG_DEBUG(WIFI_TAG,"recive cmd=%d,mode=%d,ssid=%s,key=%s\n",cmd->ops,cmd->mode,cmd->ssid.c_str(),cmd->key.c_str());
     switch (cmd->ops)
     {
     case WIFI_OPS_ADD:
@@ -328,14 +361,21 @@ void  WPAWiFiOps::handleCmd(shared_ptr<Ops> cmd)
             mKey = cmd->key;
         }else  if(cmd->mode==WIFI_MODE_AP){
             configAP(cmd->ssid,cmd->key);
+            PLOG_INFO(WIFI_TAG,"WIFI_MODE_AP\n");
         }
         break;
     case WIFI_OPS_SWITCH:
         if(cmd->mode==WIFI_MODE_AP){
             setAPMode();
-        }else if(cmd->mode==WIFI_MODE_STA){   
+        }else if(cmd->mode==WIFI_MODE_STA){
+            PLOG_INFO(WIFI_TAG,"WiFi setSTAMode\n");
             if (!cmd->ssid.empty()){
-                setSTAMode(cmd->ssid, cmd->key);
+                //string bssid = getBssid(cmd->ssid);
+                string bssid;
+                getSsidKey(cmd->ssid, cmd->key, bssid);
+                if (!isSwitch()){
+                    setSTAMode(cmd->ssid, cmd->key, bssid);
+                }
             }else{
                 setSTAMode();
             }
@@ -348,7 +388,7 @@ void  WPAWiFiOps::handleCmd(shared_ptr<Ops> cmd)
 void WPAWiFiOps::convertSSIDKey(string& out,const string& in)
 {
     string newQuote="'\"'\"'";
-    
+
     out=in;
     for(string::size_type pos=0;;pos+=newQuote.length())
     {
@@ -362,84 +402,118 @@ void WPAWiFiOps::convertSSIDKey(string& out,const string& in)
 int WPAWiFiOps::setSTAMode()
 {
     int ret;
-    char cmdBuff[256];    
+    char cmdBuff[256];
 
+    PLOG_INFO(WIFI_TAG,"WiFi setSTAMode\n");
     mStaReady=false;
     mWiFiMode=WIFI_MODE_STA;
-
-    string ssid,key;
-    if (!mSsid.empty()){
-        convertSSIDKey(ssid,mSsid);
-        convertSSIDKey(key,mKey);
-    }else{
-        string strSsid, strKey;
-        getSsidKey(strSsid, strKey);
-        convertSSIDKey(ssid, strSsid);
-        convertSSIDKey(key, strKey);
-    }
     if (mLastestMode != WIFI_MODE_STA){
         return -1;
     }
-    mListener->onEvent(WIFI_MODE_STA,WIFI_EVENT_CONNECTING);
-    return setSTAMode(ssid,key);
+
+    if (WPAWiFiOps::getInstance()->getStatus() != WIFI_EVENT_CONNECTING){
+        mListener->onEvent(WIFI_MODE_STA,WIFI_EVENT_CONNECTING);
+    }
+    string ssid,key, bssid;
+    if (!mSsid.empty()){
+        convertSSIDKey(ssid,mSsid);
+        convertSSIDKey(key,mKey);
+        //bssid = getBssid(ssid);
+        getSsidKey(ssid, key, bssid);
+    }else{
+        string strSsid, strKey;
+        getSsidKey(strSsid, strKey, bssid);
+        convertSSIDKey(ssid, strSsid);
+        convertSSIDKey(key, strKey);
+    }
+
+    PLOG_INFO(WIFI_TAG,"WiFi setSTAMode  %s %s %s \n",
+                                                      ssid.c_str(), key.c_str(), bssid.c_str());
+    if (isSwitch()){
+        return -1;
+    }
+    return setSTAMode(ssid, key, bssid);
 }
 
 
-bool WPAWiFiOps::getSsidKey(string& ssid, string& key)
+bool WPAWiFiOps::getSsidKey(string& ssid, string& key, string& bssid)
 {
-    vector<string> vWifis;    
-    mConfig->getWiFis(vWifis);
+    vector<string> vWifis;
 
-    if (vWifis.size()<2){
-        return false;
+    if (ssid.empty()){
+        mConfig->getWiFis(vWifis);
+        if (vWifis.size()<2){
+            return false;
+        }
+        ssid = vWifis[0];
+        key = vWifis[1];
+        PLOG_INFO(WIFI_TAG,"%s %s\n",ssid.c_str(),key.c_str());
+    }else{
+        vWifis.push_back(ssid);
+        vWifis.push_back(key);
     }
-
-    ssid = vWifis[0];
-    key = vWifis[1];   
-    if (vWifis.size()==2){
-        return true;
-    } 
 
     if (vWifis.size()%2 != 0){
         return false;
     }
-  
-  for (int retry = 0; retry<1; retry++){
+    PLOG_INFO(WIFI_TAG,"%s\n",ssid.c_str());
+    plt_system(CMD_PREFIX"/usr/local/bin/scan_wifi_init.sh");
+    startScanWifi();
     vector<WiFiInFo> wifis;
-    if (!scanWiFilist(wifis)){
-        return false;
-    }
-    for(auto& wifi:wifis){
-        for (int i=0; i<static_cast<int>(vWifis.size()); i+=2){
-             if (wifi.ssid == vWifis[i]){
-                 ssid = vWifis[i];
-                 key = vWifis[i+1];    
-                 return true;
-             }
+    //usleep(5*1000*1000);
+     for (int retry = 0; retry<3 && !isSwitch(); retry++){
+        PLOG_INFO(WIFI_TAG,"retry: %d\n",retry);
+        if (!scanWiFilist(wifis, retry>0)){
+            PLOG_ERROR(WIFI_TAG,"scan failed");
+            stopScanWifi();
+            return false;
         }
-        usleep(20*1000);
-    }   
-  }
-  
-    return false;        
+
+        for(auto& wifi:wifis){
+            for (int i=0; i<vWifis.size(); i+=2){
+                if (wifi.ssid == vWifis[i]){
+                    ssid = vWifis[i];
+                    key = vWifis[i+1];
+                    bssid = wifi.bssid;
+                    PLOG_INFO(WIFI_TAG,"%s\n",ssid.c_str());
+                    stopScanWifi();
+                    return true;
+                }
+            }
+        }
+
+        for (int i=0; i<20 && !isSwitch(); i++){
+            usleep(50*1000);
+        }
+    }
+
+    stopScanWifi();
+    PLOG_INFO(WIFI_TAG,"%s\n",ssid.c_str());
+
+    return false;
 }
 
-int WPAWiFiOps::setSTAMode(string& ssid,string& key)
+int WPAWiFiOps::setSTAMode(string& ssid,string& key, string bssid)
 {
     int ret;
     char cmdBuff[256];
 
+    PLOG_ERROR(WIFI_TAG,"WiFi setSTAMode %s %s %s\n", ssid.c_str(), key.c_str(), bssid.c_str());
     mStaReady=false;
     mWiFiMode=WIFI_MODE_STA;
 
-    mListener->onEvent(WIFI_MODE_STA,WIFI_EVENT_CONNECTING);
-
-    //fix switch wifi bug
+    if (WPAWiFiOps::getInstance()->getStatus() != WIFI_EVENT_CONNECTING){
+        mListener->onEvent(WIFI_MODE_STA,WIFI_EVENT_CONNECTING);
+    }
     mSsid = ssid;
     mKey = key;
-
-    snprintf(cmdBuff,sizeof(cmdBuff),CMD_PREFIX"/usr/local/bin/wifi_start_sta.sh \'\"%s\"\' \'\"%s\"\'",ssid.c_str(),key.c_str());
-
+    if (bssid.length()>10){
+        snprintf(cmdBuff,sizeof(cmdBuff),CMD_PREFIX"/usr/local/bin/wifi_start_sta.sh \'\"%s\"\' \'\"%s\"\'  \'%s\'",
+                          ssid.c_str(),key.c_str(), bssid.c_str());
+    }else{
+        snprintf(cmdBuff,sizeof(cmdBuff),CMD_PREFIX"/usr/local/bin/wifi_start_sta.sh \'\"%s\"\' \'\"%s\"\'",
+                          ssid.c_str(),key.c_str());
+    }
     if ((ret = runScript(cmdBuff)) !=0){
         PLOG_ERROR(WIFI_TAG,"Set STA Mode Fail\n");
     }else{
@@ -449,17 +523,22 @@ int WPAWiFiOps::setSTAMode(string& ssid,string& key)
     if(ret==0){
         mStaReady=true;
     }
-
+    PLOG_INFO(WIFI_TAG,"WiFi setSTAMode return\n");
     return ret;
 }
 
 int WPAWiFiOps::setAPMode()
 {
+    PLOG_ERROR(WIFI_TAG,"WiFi setAPMode\n");
     mStaReady=false;
     mWiFiMode=WIFI_MODE_AP;
-    mListener->onEvent(WIFI_MODE_AP,WIFI_EVENT_CONNECTING);
+    if (WPAWiFiOps::getInstance()->getStatus() != WIFI_EVENT_CONNECTING){
+        mListener->onEvent(WIFI_MODE_AP,WIFI_EVENT_CONNECTING);
+    }
+    //int ret=system(CMD_PREFIX"/usr/local/bin/wifi_start_ap.sh");
     int ret=runScript(CMD_PREFIX"/usr/local/bin/wifi_start_ap.sh");
-    if(ret!=0){
+    if(ret!=0)
+    {
         PLOG_ERROR(WIFI_TAG,"Set AP Mode Fail\n");
     }
     mListener->onEvent(WIFI_MODE_AP,ret!=0?WIFI_EVENT_STOP:WIFI_EVENT_CONNECTED);
@@ -476,49 +555,53 @@ int WPAWiFiOps::configAP(string& ssid,string& key)
     convertSSIDKey(k,key);
 
     snprintf(cmdBuff,sizeof(cmdBuff),CMD_PREFIX"/usr/local/bin/wifi_config_ap.sh \'%s\' \'%s\'",s.c_str(),k.c_str());
-    if((ret=system(cmdBuff))!=0){
+    if((ret=system(cmdBuff))!=0)
+    {
         PLOG_ERROR(WIFI_TAG,"Config AP Fail\n");
     }
     return ret;
 }
 
 void WPAWiFiOps::reconnectWifi()
-{         
+{
     mSsid.erase();
     mKey.erase();
     clearOps();
-    switchMode(getMode());  
+    switchMode(getMode());
 }
 
-
-bool WPAWiFiOps::scanWiFilist(vector<WiFiInFo>& wifis )
+bool WPAWiFiOps::scanWiFilist(vector<WiFiInFo>& wifis, bool bInit )
 {
-    system(CMD_PREFIX"wl scan");
+    if (!bInit){
+        system(CMD_PREFIX"wl scan");
+    }
 
     int counter = 0;
     mScanning = true;
-    while (mScanning && counter++<50){
+    PLOG_INFO(WIFI_TAG,"waiting scan %d\n",isScanning());
+    while (!bInit && isScanning() && counter++<50){
         usleep(100*1000);
     }
-    if (!mScanning){
-        return mScanning;
+    if (!isScanning()){
+        return isScanning();
     }
 
-    string cmd = CMD_PREFIX"wl scanresults|grep -E \'SSID|RSSI\'  | grep -v 'BSSID'";
+    PLOG_INFO(WIFI_TAG,"call wl scanresults %d %d\n",isScanning(),counter);
+    string cmd = CMD_PREFIX"wl scanresults|grep -E \'SSID|RSSI\'";
 
     FILE* scan = nullptr;
     scan=popen(cmd.c_str(),"r");
     if(scan==NULL){
         PLOG_ERROR(WIFI_TAG,"Open Scan WiFi list Fail\n");
-        return mScanning;     
+        return isScanning();
     }
 
-    int err=0;    
+    int err=0;
     int count=0,mod;
     WiFiInFo wifi;
     char buff[256];
-    while(fgets(buff,sizeof(buff),scan)){
-        mod=count++%2;
+    while(fgets(buff,sizeof(buff),scan) && isScanning()){
+        mod=count++%3;
         if(mod==0){
             string ssid=buff;
             static const string SSID="SSID: \"";
@@ -538,7 +621,7 @@ bool WPAWiFiOps::scanWiFilist(vector<WiFiInFo>& wifis )
             if(err){
                 PLOG_WARN(WIFI_TAG,"bad ssid:%s",buff);
             }
-        }else{
+        }else if (1==mod){
             if(err){
                 continue;
             }
@@ -551,23 +634,46 @@ bool WPAWiFiOps::scanWiFilist(vector<WiFiInFo>& wifis )
             if (idx != string::npos && dbmIdx!=string::npos){
                 string value = strRssi.substr(idx, dbmIdx-idx);
                 wifi.signal = atoi(value.c_str());
-                wifis.push_back(wifi);
             }else{
                 err=1;
                 PLOG_WARN(WIFI_TAG,"bad rssi:%s",buff);
             }
+        }else{
+            if(err){
+                continue;
+            }
+            static const string BSSID="BSSID: ";
+            string strBssid;
+            strBssid.assign(buff);
+            auto idx=strBssid.find(BSSID);
+             if (idx != string::npos){
+                 idx += BSSID.size();
+             }
+            if (idx != string::npos){
+                static const string BLANK=" ";
+                auto blankIdx=strBssid.find(BLANK, idx+1);
+                string value = strBssid.substr(idx, blankIdx-idx);
+                wifi.bssid = value;
+                wifis.push_back(wifi);
+                PLOG_INFO(WIFI_TAG,"bssid:%s",wifi.bssid.c_str());
+            }else{
+                err=1;
+                PLOG_WARN(WIFI_TAG,"bad bssid:%s",buff);
+            }
         }
+
     }
 
-    fclose(scan);
+    pclose(scan);
     sort(wifis.begin(),wifis.end(),CompGreater());
 
-    return mScanning;
+    PLOG_WARN(WIFI_TAG,"wifis size:%d",wifis.size());
+    return isScanning();
 }
 
 bool WIFI_has_config_ap()
 {
     ifstream init(string(ROLLER_EYE_CONFIG_BASE)+"ap");
-    return init.is_open();   
+    return init.is_open();
 }
 }

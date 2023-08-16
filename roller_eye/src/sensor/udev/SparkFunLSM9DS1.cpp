@@ -65,11 +65,20 @@ void LSM9DS1::init(interface_mode interface, uint8_t xgAddr, uint8_t mAddr)
 	// 1 = 14.9    4 = 238
 	// 2 = 59.5    5 = 476
 	// 3 = 119     6 = 952
+   
+    ///<<< Test for lower gyro sampleRate , test change from 5 to 1 (14.9Hz), RogerL 220821
+	/// settings.gyro.sampleRate = 5;
 	settings.gyro.sampleRate = 5;
+	///>>>
+	
 	// gyro cutoff frequency: value between 0-3
 	// Actual value of cutoff frequency depends
 	// on sample rate.
-	settings.gyro.bandwidth = 0;
+	
+	///<<< Test for gyro bandwidth,  change from 0 to 7 , RogerL 220821
+	///settings.gyro.bandwidth = 0;
+	settings.gyro.bandwidth = 	0; 		///5;	///	7;
+	///>>>
 	settings.gyro.lowPowerEnable = false;
 	settings.gyro.HPFEnable = false;
 	// Gyro HPF cutoff frequency: value between 0-9

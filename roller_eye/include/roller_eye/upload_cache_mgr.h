@@ -1,3 +1,4 @@
+
 #ifndef __ROLLER_EYE_UPLOAD_CACHE_MGR_H__
 #define __ROLLER_EYE_UPLOAD_CACHE_MGR_H__
 #include<string>
@@ -9,16 +10,16 @@
 #include<iostream>
 #include<sstream>
 
-#define CACHE_PROTOCAL_VERSION  0x01 
+#define CACHE_PROTOCAL_VERSION  0x01
 
 #define CACHE_EOF                       0
 #define CACHE_OK                         1
 
 enum{
 CACHE_AUDIO_BUFF='A',
-CACHE_VIDEO_BUFF='V',     
-CACHE_VIDEO_I_BUFF='I',     
-CACHE_VIDEO_P_BUFF='P'     
+CACHE_VIDEO_BUFF='V',
+CACHE_VIDEO_I_BUFF='I',
+CACHE_VIDEO_P_BUFF='P'
 };
 
 typedef uint32_t cache_stamp_t;
@@ -35,7 +36,7 @@ namespace roller_eye{
     public:
         CacheFile(const string& name, const string& baseName, int op);
         ~CacheFile();
- 
+
         int read(Cache& cache);
 
         int write(Cache& cache);
@@ -64,28 +65,29 @@ namespace roller_eye{
 
 
         int removePending(const string&name);
- 
+
         int removeReady(const string&name);
 
-        int setReady(const string& name);    
+        int setReady(const string& name);
 
         int removeThumbCache(const string&name);
         int removeThumbReady(const string&name);
-        int setThumbReady(const string& name);    
+        int setThumbReady(const string& name);
 
         vector<string> scanThumbList();
         vector<string> scanThumbCacheList();
         vector<string> scanThumbReadyList();
-  
+
+
         int getSizeFromReady(const string& name);
-        int getSizeFromThumbReady(const string& name);        
- 
+        int getSizeFromThumbReady(const string& name);
+
         vector<string> scanPendingList();
 
         vector<string> scanReadyList();
 
         int watch_start();
- 
+
         int watch_wait(bool& run);
 
         int watch_end();

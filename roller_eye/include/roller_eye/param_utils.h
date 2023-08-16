@@ -13,7 +13,7 @@ namespace roller_eye{
     struct MonitorZone{
         bool enable;
         bool motion;
-        vector<roller_eye::contour> contours; 
+        vector<roller_eye::contour> contours;
     };
     struct MonitorParam{
         bool person;
@@ -47,7 +47,7 @@ namespace roller_eye{
         ros::ServiceClient mGetNavStatusClient;
 
         ros::Publisher mEnableMotionPub;
-    }; 
+    };
 
     void load_vio_param(VioParam &param);
 }

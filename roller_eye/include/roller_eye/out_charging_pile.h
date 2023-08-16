@@ -18,21 +18,20 @@ public:
                                                                                       &OutChargingPile::batteryStatusCallback,this);
     }
     int doOut()
-    {       
+    {
         if (!mCharging){
-            ROS_INFO("not charging");
             return -1;
         }
         if (mOuting){
-             ROS_INFO("is outing");
             return 0;
         }
+
         std_msgs::Int32 event;
         event.data = SYSEVT_OUTPILE;
         mSysEvtPub.publish(event);
-        
+
         mOuting=true;
-        auto th=std::thread([this](){     
+        auto th=std::thread([this](){
             geometry_msgs::Twist vel;
             vel.linear.y=0.5*MACC_MAX_SPEED_Y;
             mPub.publish(vel);

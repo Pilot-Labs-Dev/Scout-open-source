@@ -10,11 +10,13 @@
 #define MOTOR_TAG   "motor"
 #define MOTOR_SPEED_EQUAL(v1,v2)     (std::abs((v1)-(v2))<5.0e-2)
 #define MOTOR_SPEED_ZERO(v)        (std::abs(v)<1.0e-3)
+#define MATCHING_FACTOR             -1
+
 namespace roller_eye{
     static const string PROC_PATH="/proc/driver/";
 
     Motor::Motor()
-    {        
+    {
         reset();
     }
     Motor::~Motor()
@@ -26,7 +28,7 @@ namespace roller_eye{
         if(idx<0||idx>=MOTOR_NUM){
             pset_errno(PEPAR);
             return -1;
-        }    
+        }
 
         //std::cout<<"setParam: "<<idx<<","<<speed<<","<<status<<endl;
         mSpeedChanged[idx]=(!MOTOR_SPEED_ZERO(speed) && MOTOR_SPEED_EQUAL(mParam[idx].speed,speed))?0:1;
@@ -39,7 +41,7 @@ namespace roller_eye{
         }
         return 0;
     }
-  
+
     int Motor::powerON()
     {
         reset();
@@ -63,15 +65,17 @@ namespace roller_eye{
     MaccumMotor::MaccumMotor()
     {
         DeviceDefaultConfig cfg;
-        MOROR_SET_DIR_DELAY=cfg.getMotorSetDirDelay();  
+        MOROR_SET_DIR_DELAY=cfg.getMotorSetDirDelay();
+
+        //PLOG_INFO(MOTOR_TAG,"Motor Change dir delay=%d\n",MOROR_SET_DIR_DELAY);
     }
     MaccumMotor::~MaccumMotor()
     {
-    
+
     }
-    
+
     int MaccumMotor::powerOn()
-    {    
+    {
         ofstream ctl(PROC_PATH+"motor");
         plt_assert(ctl.is_open());
         ctl<<"1"<<std::flush;
@@ -82,7 +86,7 @@ namespace roller_eye{
         ofstream ctl(PROC_PATH+"motor");
         plt_assert(ctl.is_open());
         ctl<<"0"<<std::flush;
-        return ctl.fail()?-1:0;     
+        return ctl.fail()?-1:0;
     }
     /*
     High Level motor layout is
@@ -105,7 +109,7 @@ dir map [1,0,0,1]
         static int layoutMap[]={0,1,3,2};
         static int dirMap[]={1,0,0,1};
         int dir,i,j;
-  
+
         ofstream ctl(PROC_PATH+"motor");
         plt_assert(ctl.is_open());
         ctl<<"3";
@@ -114,7 +118,7 @@ dir map [1,0,0,1]
             if(dirMap[i]){
                 dir=(mParam[j].status==MOTOR_STATUS_POSITIVE?1:0);
             }else{
-            dir=(mParam[j].status==MOTOR_STATUS_POSITIVE?0:1); 
+            dir=(mParam[j].status==MOTOR_STATUS_POSITIVE?0:1);
             }
             ctl<<":"<<i+1<<":"<<dir;
         //std::cout<<"dir: "<<i+1<<","<<dir<<endl;
@@ -122,7 +126,7 @@ dir map [1,0,0,1]
         ctl<<std::flush;
         return ctl.fail()?-1:0;
 
- 
+
     }
     int MaccumMotor::setSpeed(bool stop)
     {
@@ -147,19 +151,19 @@ dir map [1,0,0,1]
                     speed=0;
                 }
             }else{
-            speed=0; 
+            speed=0;
             }
             ctl<<":"<<i+1<<":"<<speed;
             //std::cout<<"speed: "<<i+1<<","<<speed<<endl;
         }
         ctl<<std::flush;
         return ctl.fail()?-1:0;
- 
+
     }
 
     int MaccumMotor::drive(vector<int> vDir, vector<int> vSpeed)
     {
-        if (vDir.size() != MOTOR_NUM && 
+        if (vDir.size() != MOTOR_NUM &&
             vSpeed.size() !=MOTOR_NUM){
             return -1;
         }
@@ -167,7 +171,7 @@ dir map [1,0,0,1]
             ofstream ctl(PROC_PATH+"motor");
             plt_assert(ctl.is_open());
             ctl<<"3";
-            for(int i=0;i<static_cast<int>(vDir.size());i++){    
+            for(int i=0;i<vDir.size();i++){
                 ctl<<":"<<i+1<<":"<<vDir[i];
                 std::cout<<"dir2: "<<i+1<<","<<vDir[i]<<endl;
             }
@@ -179,20 +183,20 @@ dir map [1,0,0,1]
             ofstream ctl(PROC_PATH+"motor");
             plt_assert(ctl.is_open());
             ctl<<"5";
-            for(int i=0;i<static_cast<int>(vSpeed.size());i++){  
+            for(int i=0;i<vSpeed.size();i++){
                 speed = vSpeed[i];
                 if(vSpeed[i]>=100){
                     speed=100;
                 }
                 // if(speed<0){
                 //     speed=0;
-                // }      
+                // }
                 ctl<<":"<<i+1<<":"<<speed;
                 std::cout<<"speed2 : "<<i+1<<","<<speed<<endl;
             }
             ctl<<std::flush;
         }
-       
+
         return 0;
     }
 
@@ -249,20 +253,21 @@ dir map [1,0,0,1]
 
 
         int nSpan = 4;
-        for (int i=0; i<static_cast<int>(vReverseSpeed.size()-1); i++){
+        for (int i=0; i<vReverseSpeed.size()-1; i++){
             for (int j=0; j<nSpan; j++){
                 m_vRSpeed.push_back(vReverseSpeed[i]-(vReverseSpeed[i]-vReverseSpeed[i+1])*j/nSpan);
             }
         }
-        for (int i=0; i<static_cast<int>(vForwardSpeed.size()-1); i++){
+        for (int i=0; i<vForwardSpeed.size()-1; i++){
             for (int j=0; j<nSpan; j++){
                 m_vFSpeed.push_back(vForwardSpeed[i]-(vForwardSpeed[i]-vForwardSpeed[i+1])*j/nSpan);
             }
-        }    
+        }
+        //PLOG_INFO(MOTOR_TAG,"Motor Change dir delay=%d\n",MOROR_SET_DIR_DELAY);
     }
     MaccumMotorFS8003::~MaccumMotorFS8003()
     {
-    
+
     }
     int MaccumMotorFS8003::powerOn()
     {
@@ -278,7 +283,7 @@ dir map [1,0,0,1]
         if(idx<0||idx>=MOTOR_NUM){
             pset_errno(PEPAR);
             return -1;
-        }    
+        }
 
         //std::cout<<"setParam: "<<idx<<","<<speed<<","<<status<<endl;
         mSpeedChanged[idx]=(!MOTOR_SPEED_ZERO(speed) && MOTOR_SPEED_EQUAL(mParam[idx].speed,speed))?0:1;
@@ -287,10 +292,10 @@ dir map [1,0,0,1]
         }
         //mDirChanged[idx]=(mParam[idx].status==status||MOTOR_SPEED_ZERO(speed))?0:1;//if speed == 0 ,do not change dir
         mDirChanged[idx]=mParam[idx].status!=status?1:0;//if speed == 0 ,do not change dir
-        if(mDirChanged[idx]){    
+        if(mDirChanged[idx]){
             mParam[idx].status=status;
         }
-        if (MOTOR_SPEED_ZERO(speed)){            
+        if (MOTOR_SPEED_ZERO(speed)){
             mParam[idx].status=MOTOR_STATUS_MAX;
         }
         return 0;
@@ -327,15 +332,15 @@ dir map [1,0,0,1]
                 ctl<<"1";
                 //std::cout<<"dir1: "<<i+1<<"  1"<<endl;
             }
-            ctl<<std::flush;  
+            ctl<<std::flush;
         }
 
-        return 0;      
- 
+        return 0;
+
     }
 
 
-    void MaccumMotorFS8003::covertSpeed(float& x, float& y)
+    void MaccumMotorFS8003::convertSpeed(float& x, float& y)
     {
         if (y>0){
             if (y<0.05){
@@ -451,7 +456,72 @@ dir map [1,0,0,1]
         }
     }
 
-    // float MaccumMotorFS8003::covertSpeed(float speed)
+    void MaccumMotorFS8003::convertSpeedTrackModel(float& x, float& y)
+    {
+        ///< for tunning
+        // DeviceDefaultConfig cfg;
+        // float tune_number = cfg.getTuneNumber();
+        ///< put this pieces of code under range want to tune.
+        // PLOG_INFO(MOTOR_TAG, "[Tunning] [x: %f, y: %f], k = %f", x, y, tune_number);
+        if (y>0){
+            if (y<=0.071){
+                // y /= tune_number;
+                y/=0.68;
+            }else   if (y<=0.085){
+                // y /= tune_number;
+                y/=0.71;
+            }else if (y<=0.095){
+                // y /= tune_number;
+                y/=0.73;
+            }else   if (y<=0.13){
+                // y /= tune_number;
+                y/=0.75;
+            }else if (y<=0.17){
+                // y /= tune_number;
+                y/=0.82;
+            }else if (y<=0.22){
+                // y /= tune_number;
+                y/=0.84;
+            }else if (y<=0.47){
+                // y /= tune_number;
+                y/=0.86;
+            }
+        }else {
+            if (abs(y)<=0.071){
+                // y = 0.07;
+                // y /= tune_number;
+                y/=0.71;
+            }else  if (abs(y)<=0.085){
+                // y /= tune_number;
+                y/=0.78;
+            }else  if (abs(y)<=0.095){
+                // y /= tune_number;
+                y/=0.82;
+            }else  if (abs(y)<=0.12){
+                // y /= tune_number;
+                y/=0.83;
+            }else if (abs(y)<=0.17){
+                // y /= tune_number;
+                y/=0.90;
+            }else if (abs(y)<=0.24){
+                // y /= tune_number;
+                y/=1.02;
+            }else if (abs(y)<=0.28){
+                // y /= tune_number;
+                y/=1.05;
+            }else if (abs(y)<=0.32){
+                // y /= tune_number;
+                y/=1.1;
+            }else{
+                // y /= tune_number;
+                y/=1.18;
+            }
+        }
+        x = 0;
+    }
+
+
+    // float MaccumMotorFS8003::convertSpeed(float speed)
     // {
     //     if (speed>0){
     //         if (speed<=0.13){
@@ -478,7 +548,7 @@ dir map [1,0,0,1]
     //             return speed/1.04;
     //         }
     //     }
-        
+
     //     return speed;
     // }
 
@@ -487,41 +557,50 @@ dir map [1,0,0,1]
     {
         const int MAX_SPEED = 100;
         //const int MIN_POSSPEED = 18;
-        const int MIN_POSSPEED = 16;
+        int MIN_POSSPEED, MIN_NEGSPEED;
+        DeviceDefaultConfig cfg;
+        // float matching_factor = cfg.getMatchingFactor();
+        if (PltConfig::getInstance()->isTrackModel()){  /// Track model ...
+            MIN_POSSPEED = 17;
+            MIN_NEGSPEED = 62;
+            // MIN_POSSPEED = cfg.getTuneNumber();
+            // MIN_NEGSPEED = cfg.getTuneNumber2();
+        } else {
+            MIN_POSSPEED = 16;
+            MIN_NEGSPEED = 58;
+        }
+        // const int MIN_POSSPEED = 16;
         string motorCtl[] = {"motor0_ctl","motor1_ctl","motor2_ctl","motor3_ctl"};
         //calc match speed
         int speedArr[MOTOR_NUM] = {0};
         for(int i=0;i<MOTOR_NUM;i++){
-            if(!stop){           
+            if(!stop){
                 if(!MOTOR_SPEED_ZERO(mParam[i].speed)){
-                    speedArr[i]=(int)(mParam[i].speed*E); 
+                    speedArr[i]=(int)(mParam[i].speed*E);
                     speedArr[i] = (speedArr[i]*MAX_SPEED)/100;
                     if(speedArr[i]>=MAX_SPEED){
                         speedArr[i]=MAX_SPEED;
                     }else if (speedArr[i] < MIN_POSSPEED){
                         speedArr[i]=MIN_POSSPEED;
-                    }          
+                    }
                 }
-            }          
+            }
         }
-
-        //const int MIN_NEGSPEED = 59;
-        const int MIN_NEGSPEED = 58;
-         for(int i=0;i<MOTOR_NUM;i++){
-            if (MOTOR_STATUS_POSITIVE != mParam[i].status && 
-                  speedArr[i]>=MIN_POSSPEED){
-                speedArr[i] = (speedArr[i]-MIN_POSSPEED)/2+MIN_NEGSPEED;
-            }                    
+        for(int i=0;i<MOTOR_NUM;i++){
+            if (MOTOR_STATUS_POSITIVE != mParam[i].status &&
+                speedArr[i]>=MIN_POSSPEED){
+                speedArr[i] = (speedArr[i]-MIN_POSSPEED)/2+MIN_NEGSPEED + MATCHING_FACTOR;
+            }
         }
+        std::cout << std::endl;
 
         for(int i=0;i<MOTOR_NUM;i++){
             ofstream ctl(PROC_PATH+motorCtl[i]);
-            plt_assert(ctl.is_open());             
+            plt_assert(ctl.is_open());
             ctl<<"2:"<< speedArr[i];
-            ctl<<std::flush;        
-            //std::cout<<"FS8003 speed: "<<i+1<<","<<mParam[i].speed<<" ,"<< speedArr[i]<<endl;          
-        }       
-        return 0;      
+            ctl<<std::flush;
+        }
+        return 0;
     }
 #else
 
@@ -533,17 +612,17 @@ dir map [1,0,0,1]
         //calc match speed
         int speedArr[MOTOR_NUM] = {0};
         for(int i=0;i<MOTOR_NUM;i++){
-            if(!stop){           
+            if(!stop){
                 if(!MOTOR_SPEED_ZERO(mParam[i].speed)){
-                    speedArr[i]=(int)(mParam[i].speed*E); 
+                    speedArr[i]=(int)(mParam[i].speed*E);
                     speedArr[i] = (speedArr[i]*MAX_SPEED)/100;
                     if(speedArr[i]>=MAX_SPEED){
                         speedArr[i]=MAX_SPEED;
                     }else if (speedArr[i] < MIN_POSSPEED){
                         speedArr[i]=MIN_POSSPEED;
-                    }          
+                    }
                 }
-            }          
+            }
 
             std::cout<<"i="<<i<<","<<speedArr[i]<<std::endl;
         }
@@ -551,7 +630,7 @@ dir map [1,0,0,1]
         const int MIN_NEGSPEED = 59;
         //const int MIN_NEGSPEED = 58;
          for(int k=0;k<MOTOR_NUM;k++){
-            if (MOTOR_STATUS_POSITIVE != mParam[k].status && 
+            if (MOTOR_STATUS_POSITIVE != mParam[k].status &&
                   speedArr[k]>=MIN_POSSPEED){
                 int idx = MAX_SPEED-speedArr[k];
                 for (int j=0; j<m_vRSpeed.size()-1; j++){
@@ -561,19 +640,19 @@ dir map [1,0,0,1]
                         break;
                     }
                 }
-            }                    
+            }
         }
 
 
 
         for(int i=0;i<MOTOR_NUM;i++){
             ofstream ctl(PROC_PATH+motorCtl[i]);
-            plt_assert(ctl.is_open());             
+            plt_assert(ctl.is_open());
             ctl<<"2:"<< speedArr[i];
-            ctl<<std::flush;        
-            //std::cout<<"FS8003 speed: "<<i+1<<","<<mParam[i].speed<<" ,"<< speedArr[i]<<endl;          
-        }       
-        return 0;      
+            ctl<<std::flush;
+            //std::cout<<"FS8003 speed: "<<i+1<<","<<mParam[i].speed<<" ,"<< speedArr[i]<<endl;
+        }
+        return 0;
     }
 #endif
 
@@ -583,41 +662,89 @@ dir map [1,0,0,1]
         const int MIN_POSSPEED = 18;
         string motorCtl[] = {"motor0_ctl","motor1_ctl","motor2_ctl","motor3_ctl"};
 
-        for(int i=0;i<static_cast<int>(vSpeed.size());i++){
+        for(int i=0;i<vSpeed.size();i++){
             if (vSpeed[i]>0){
                  if(vSpeed[i]>=MAX_SPEED){
                         vSpeed[i]=MAX_SPEED;
                     }else if (vSpeed[i] < MIN_POSSPEED){
                         vSpeed[i]=MIN_POSSPEED;
-                    }         
+                    }
             }
         }
 
         const int MIN_NEGSPEED = 59;
-         for(int i=0;i<static_cast<int>(vDir.size());i++){
-            if (0 == vDir[i] && 
+         for(int i=0;i<vDir.size();i++){
+            if (0 == vDir[i] &&
                   vSpeed[i]>=MIN_POSSPEED){
                 vSpeed[i] = (vSpeed[i]-MIN_POSSPEED)/2+MIN_NEGSPEED;
-            }          
-            
-            std::cout<<"FS8003 : "<<i+1<<","<< vDir[i]<<" ,"<< vSpeed[i]<<endl;                
+            }
+
+            std::cout<<"FS8003 : "<<i+1<<","<< vDir[i]<<" ,"<< vSpeed[i]<<endl;
         }
 
-        for(int i=0;i<static_cast<int>(vSpeed.size());i++){
+        for(int i=0;i<vSpeed.size();i++){
             ofstream ctl(PROC_PATH+motorCtl[i]);
-            plt_assert(ctl.is_open());             
+            plt_assert(ctl.is_open());
             if (vDir[i]>0){
                 ctl<<"1";
             }else{
                 ctl<<"0";
             }
-            ctl<<std::flush;      
+            ctl<<std::flush;
             ctl<<"2:"<< vSpeed[i];
-            ctl<<std::flush;            
-        }       
-        return 0;   
+            ctl<<std::flush;
+        }
+        return 0;
     }
 
+
+    int MaccumMotorFS8003::driveF8003(int idx, float speed)
+    {
+        if (idx<0 || idx>3){
+            return -1;
+        }
+        string motorCtl[] = {"motor0_ctl","motor1_ctl","motor2_ctl","motor3_ctl"};
+        int i=idx;
+        int dir = 0;
+        static int vPrevDir[] ={-1,-1,-1,-1};
+        std::cout<<"driveF8003 i= "<<i<<endl;
+        ofstream ctl(PROC_PATH+motorCtl[i]);
+        plt_assert(ctl.is_open());
+        if (speed>0){
+            ctl<<"0";
+            std::cout<<"driveF8003 dir 0"<<endl;
+        }else{
+            dir = 1;
+            ctl<<"1";
+            std::cout<<"driveF8003 dir 1"<<endl;
+        }
+        ctl<<std::flush;
+        if (abs(speed) < 0.001){
+            ctl<<"3";
+            std::cout<<"driveF8003 stop : "<<endl;
+            vPrevDir[i] = -1;
+        }else{
+            int nSpeed = abs(speed);
+            if(nSpeed>=24){
+                    nSpeed=24;
+            }
+            if (dir != vPrevDir[i]){
+                ctl<<"2:"<<0;
+                ctl<<std::flush;
+                usleep(100*1000);
+                int nTmp = 20;
+                ctl<<"2:"<<nTmp;
+                ctl<<std::flush;
+                usleep(20*1000);
+                std::cout<<"driveF8003 speed0 : "<<speed<<" "<<nTmp<<endl;
+            }
+            ctl<<"2:"<<nSpeed;
+            std::cout<<"driveF8003 speed : "<<speed<<" "<<nSpeed<<endl;
+            vPrevDir[i] = dir;
+        }
+        ctl<<std::flush;
+        return 0;
+    }
 
     int MaccumMotorFS8003::flush()
     {
@@ -660,7 +787,7 @@ dir map [1,0,0,1]
 
         mFd=open(path.c_str(),O_RDWR|O_NOCTTY|O_NDELAY);
         plt_assert(mFd>=0);
-      
+
         plt_assert(set_serial_attrib(mFd,baudrate,8,"1",'N',0,0)==0);
     }
     TTYMotor::~TTYMotor()
@@ -702,7 +829,7 @@ dir map [1,0,0,1]
         const char* cmd="F\n";
         return writeMsg(cmd);
     }
-    
+
     int TTYMotor1::setParam(int idx,float speed,MotorStatus status)
     {
         char buf[32];
@@ -743,7 +870,7 @@ dir map [1,0,0,1]
         snprintf(buf+idx,sizeof(buf)-idx,"\n");
         return writeMsg(buf);
     }
-    
+
     int TTYMotor2::setParam(int idx,float speed,MotorStatus status)
     {
         return 0;
@@ -751,11 +878,10 @@ dir map [1,0,0,1]
     Motor* createMotor()
     {
 #if defined(USE_DEFALUT_MOTOR)
-        string hwVer;
-        PltConfig::getInstance()->getHwVersion(hwVer);
-        if (hwVer.length() ==10 && hwVer[5] == '0' && hwVer[6] == '1' ){
+        if (PltConfig::getInstance()->isChinaMotor()){
             return new MaccumMotorFS8003();
         }
+
         return new MaccumMotor();
 #elif defined(USE_PLUGIN_MOTOR)
         std::string serialPort;

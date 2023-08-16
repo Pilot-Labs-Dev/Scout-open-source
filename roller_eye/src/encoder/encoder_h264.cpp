@@ -117,7 +117,6 @@ EncoderH264::~EncoderH264()
     int ret;
     int iNal = 0;
 
-    //flush encoder
     while(1){
         ret = x264_encoder_encode(pHandle, &pNals, &iNal, NULL, pPic_out);
         if(ret==0){

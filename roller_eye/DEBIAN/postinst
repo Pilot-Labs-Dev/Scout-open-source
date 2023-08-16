@@ -2,13 +2,14 @@
 ldconfig
 echo "copy default settings"
 CONFIG_ROOT_DIR=/var/roller_eye/config
-MOTION_CONFIG_PATH=$CONFIG_ROOT_DIR/motion
 MONITOR_CONFIG_PATH=$CONFIG_ROOT_DIR/monitor
 VIDEO_CONFIG_PATH=$CONFIG_ROOT_DIR/video.yaml
+SOUND_CONFIG_PATH=$CONFIG_ROOT_DIR/soundEffect
+MOTION_CONFIG_PATH=$CONFIG_ROOT_DIR/motion
 
 function copy_if_not_exist()
 {
-    if [ ! -f $1 ];then
+    if [ ! -s $1 ];then
         cp $CONFIG_ROOT_DIR/$2 $1
         if [ "$?" != "0" ];then
             echo "copy $1 fail"
@@ -18,15 +19,15 @@ function copy_if_not_exist()
         fi
     fi
 }
-copy_if_not_exist $MOTION_CONFIG_PATH motion_default.json
 copy_if_not_exist $MONITOR_CONFIG_PATH monitor_default.json
 copy_if_not_exist $VIDEO_CONFIG_PATH video_default.yaml
-
+copy_if_not_exist $SOUND_CONFIG_PATH soundEffect_default.json
+# copy_if_not_exist $MOTION_CONFIG_PATH motion_default
 
 OS_ID=$(cat /etc/os-release |grep ^ID=|awk -F '=' '{print $2}')
 echo "OS ID is "$OS_ID
 
-case "$OS_ID" in 
+case "$OS_ID" in
 	debian) SERVICE_PATH=/lib/systemd/system;;
 	ubuntu) SERVICE_PATH=/lib/systemd/system;;
 	*) echo "unsupport OS"
@@ -40,7 +41,7 @@ ROS_VER=
 ROS_VER_NUM=`ls /opt/ros|wc -w`
 
 if [ "$ROS_VER_NUM" == "0" ];then
-    echo "None ROS SDK found " 
+    echo "None ROS SDK found "
     exit 1
 fi
 if [ "$ROS_VER_NUM" != "1" ];then
@@ -48,11 +49,11 @@ if [ "$ROS_VER_NUM" != "1" ];then
     echo "Found multiple ROS SDK:$ROS_VER "
     exit  1
 else
-    ROS_VER=`ls /opt/ros`   
+    ROS_VER=`ls /opt/ros`
 fi
 echo "ROS SDK Version:$ROS_VER"
 source /opt/ros/$ROS_VER/setup.bash
 ROLLER_EYE_SERVICE=roller_eye
 rosrun robot_upstart install roller_eye/launch/start.launch --job $ROLLER_EYE_SERVICE --user root
 echo "reload and restart roller_eye service"
-systemctl daemon-reload && systemctl restart $ROLLER_EYE_SERVICE 
+systemctl daemon-reload && systemctl restart $ROLLER_EYE_SERVICE

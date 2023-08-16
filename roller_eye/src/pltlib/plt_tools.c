@@ -39,11 +39,11 @@ int  plt_timeval_diff_ms(struct timeval *t1,struct timeval *t2)
 
 int64_t  plt_timeval_diff_us(struct timeval *t1,struct timeval *t2)
 {
-    return (int64_t)(t1->tv_sec-t2->tv_sec)*1000000+(int64_t)(t1->tv_usec-t2->tv_usec);   
+    return (int64_t)(t1->tv_sec-t2->tv_sec)*1000000+(int64_t)(t1->tv_usec-t2->tv_usec);
 }
 int64_t  plt_timeval_to_ns(struct timeval *t)
 {
-    return (int64_t)(t->tv_sec)*1000000000+(int64_t)(t->tv_usec)*1000;   
+    return (int64_t)(t->tv_sec)*1000000000+(int64_t)(t->tv_usec)*1000;
 }
 
 int rgbToBmpFile(const char *pFileName, unsigned char* pRgbaData, int nWidth , int nHeight)
@@ -371,7 +371,7 @@ int  set_serial_attrib (int fd, int  baudrate,  int  databit,  const char *stopb
      set_data_bit(&opt, databit);
      set_parity(&opt, parity);
      set_stopbit(&opt, stopbit);
-    
+
      opt.c_oflag 		 = 0;
      opt.c_lflag            	|= 0;
      opt.c_oflag          	&= ~OPOST;
@@ -476,7 +476,7 @@ void copyYFromYUYV(const unsigned char *yuyv, unsigned char *y, int width,  int 
 int checkTimeSynced(int waitSync)
 {
     static int synced=0;
-  
+
     while (!synced)
     {
         synced=1;
@@ -679,6 +679,7 @@ void parseRoutes(struct nlmsghdr *nlHdr, struct route_info *rtInfo,char *gateway
 int get_gateway(char *gateway)
 {
     struct nlmsghdr *nlMsg;
+    struct rtmsg *rtMsg;
     struct route_info *rtInfo;
     char msgBuf[BUFSIZE];
     int sock, len, msgSeq = 0;
@@ -690,6 +691,7 @@ int get_gateway(char *gateway)
 
     memset(msgBuf, 0, BUFSIZE);
     nlMsg = (struct nlmsghdr *)msgBuf;
+    rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
     nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
     nlMsg->nlmsg_type = RTM_GETROUTE; // Get the routes from kernel routing table .
     nlMsg->nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST; // The message is a request for dump.
@@ -724,22 +726,28 @@ int ping_status(char *ip)
     int i, status;
     pid_t pid;
 
-    for (i = 0; i < 3; ++i) {
+    for (i = 0; i < 5; ++i) {
         if ((pid = vfork()) < 0) {
             printf("vfork error");
             continue;
         }
- 
+
+        char ip[256];
+        if (get_gateway(ip) != 0){
+            usleep(5*1000*1000);
+            continue;
+        }
+
         if (pid == 0) {
             if ( execlp("ping", "ping","-c","1",ip, (char*)0) < 0) {
                 printf("execlp error\n");
                 exit(1);
             }
         }
- 
-        waitpid(pid, &status, 0); 
+
+        waitpid(pid, &status, 0);
         if (status == 0)
             return 0;
-    } 
+    }
     return -1;
 }

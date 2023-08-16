@@ -17,7 +17,7 @@ typedef std::function<void(int)> VideoStreamEventCB;
 class CameraHandle: public SingleClass<CameraHandle>
 {
 public:
-    // static CameraHandle *getInstance();
+
 void newCameraHandle(int w, int h, int frm_num, int frm_rate_den,uint32_t fmt, int h264Quality, int cameraLight);
 
 VSHandle createVideoStream(int buffCnt=0);

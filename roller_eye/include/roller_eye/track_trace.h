@@ -34,7 +34,7 @@ public:
      TrackPoint& back();
      TrackPoint& front();
      int size();
-     void clip(Eigen::Vector3d&pos,int cnt);     
+     void clip(Eigen::Vector3d&pos,int cnt);
      void erase(float distance);
      vector<TrackPoint> &TrackPointList();
      int64_t getMaxDistStamp() {return mMaxTimestamp;}
@@ -54,7 +54,7 @@ public:
     bool traceOnce(float& vx,float &vy,float &w,float& yaw);
 
     int size();
-    void clear();    
+    void clear();
     bool done();
     void erase(int cnt);
     void clipTrace(int cnt);

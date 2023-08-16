@@ -93,7 +93,7 @@ class AutoGenLine:public Config<string>{
         void store();
         int mLen;
         bool mRegen;
-    }; 
+    };
 template <class T>
 class ProcessLockConfig:public Config<T>{
 public:
@@ -136,7 +136,7 @@ private:
     void unlock()
     {
         if(close_unlock_whole_file(mLockFD)<0){
-            PLOG_ERROR("config","close unlock file [%s] fail\n",Config<T>::mPath.c_str());  
+            PLOG_ERROR("config","close unlock file [%s] fail\n",Config<T>::mPath.c_str());
         }
     }
     int mLockFD;
@@ -156,8 +156,8 @@ public:
     string& getSN(string& val);
     string& getLastPatrolName(string& val);
     string& getHwVersion(string& val);
-    string& getMotorPort(string& val);
 
+    string& getMotorPort(string& val);
     void updateLastPatrolName(const string& val);
     void updateSN(const string& val);
     void updateVersion(const string& val);
@@ -165,14 +165,17 @@ public:
     vector<string>&  getWiFis(vector<string>& val);
     void updateWiFis(const vector<string> &val);
 
+    vector<string>& getIbeaconInfo(vector<string>& val);
+
     string& getMotorSpeed(string& val);
     void setMotorSpeed(string& val);
 
     void getMonitorParam(nlohmann::json& val);
     void setMonitorParam(nlohmann::json& val);
-    
+
     void getProxyList(nlohmann::json& val);
 
+    void getLionPars(vector<float>& vPars);
     void getMaxNavSize(int& size);
     void getMinBatForPowerOff(int& value);
     void getMinBat(int& value);
@@ -182,6 +185,10 @@ public:
     void getMotionParam(nlohmann::json& val);
     void setMotionParam(nlohmann::json& val);
 
+    bool isSTMotor();
+    bool isChinaMotor();
+	bool isTrackModel();
+
 protected:
     PltConfig();
      ~PltConfig();
@@ -190,7 +197,9 @@ protected:
     SingleLine mVersion;
     SingleLine mLastPatrolName;
     MultiLines mWiFi;
+    MultiLines mLions;
     SingleLine mMotorSerial;
+    MultiLines mIbeaconInfo;
     SingleLine mMotorSpeed;
     JsonConfig mMonitor;
     JsonConfig mSoundEffect;
@@ -199,24 +208,24 @@ protected:
     SingleLine mMaxNavSize;
     SingleLine mMinBatForPowerOff;
     SingleLine mMinBat;
-    SingleLine mHwVersion;
- }; 
+ };
  class ReadOnlyConfig{
 public:
      ReadOnlyConfig(string path);
      ~ReadOnlyConfig();
-    
+
     int getInt(string& key,int def=0);
     bool getBool(string& key,bool def=true);
     string getString(string& key,string def="");
     float getFloat(string& key,float def=0.0f);
+    double getDouble(string& key,double def=0.0);
     template<typename T >
     T get(string& key,T def);
 private:
     nlohmann::json mConfig;
  };
  class DeviceDefaultConfig{
-public: 
+public:
     DeviceDefaultConfig();
     bool getMotorAdjust();
     bool getMotorFixDir();
@@ -250,13 +259,50 @@ public:
     float getMotionMinArea();
     float getMotionMaxArea();
     float getTrackLookDistance();
+    float getBackupVx();
+    float getBackupVy();
+    float getBackupWz();
+    int   getBackupDuration();
+    int   getTryCount();
+    float getAlignXOffset();
+    float getAlignMinX();
+    float getAlignMinZ();
+    float getAlignMinAngle();
+	int   getImuFilterOffsetCycleCount();
+	double getImuFilterOffsetThreshold();
+	int   getImuFilterLogCycleCount();
+	float getBackupRollSpeed();
+	float getBackupMoveDist();
+    float getAngleRatio();
+	float getBackupMaxRollSpeed();
+    float getBackupMaxShiftSpeed();
+	int   getTrackType();
+
+    float getTrackTypeBackupVx();
+    float getTrackTypeBackupVy();
+    float getTrackTypeBackupWz();
+    float getTrackTypeSwingRatio();
+    int getTrackTypeTryCount();
+	float getTrackTypeBackupRollMinSpeed();
+	float getTrackTypeBackupRollSpeed();
+	float getTrackTypeBackupRollAngle();
+    float getTrackTypeMoveForwardRatio();
+    float getTrackTypeMoveBackwardRatio();
+    float getTrackTypeGyroxClimbingThres();
+    float getTrackTypeFloorRollFactor();
+    float getRollExKp();
+    float getRollExKi();
+    float getRollExKd();
+    float getRollExMaxInitialSpeed();
+    // float getTuneNumber1();
+    // float getTuneNumber2();
 private:
     ReadOnlyConfig mCfg;
  };
 
 
   class proxyListConfig{
-public: 
+public:
     proxyListConfig();
     string getString(string& key,string def="");
 private:

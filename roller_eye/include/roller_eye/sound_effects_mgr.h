@@ -13,31 +13,31 @@
 
 typedef enum SYS_EVENT_TYPE{
     SYSEVT_NONE = -1,
-    SYSEVT_POWERON,                         
-    SYSEVT_POWEROFF,                        
-    SYSEVT_STA2AP,                                 
-    SYSEVT_AP2STA,                                
-    SYSEVT_SETWIF,                                
-    SYSEVT_WIFICON,                             
-    SYSEVT_WIFIDISCON,                     
-    SYSEVT_STARTCHARGING,            
-    SYSEVT_OUTPILE,                            
-    SYSEVT_LOWPOWER,                    
-    SYSEVT_NETCMD,                          
-    SYSEVT_OBSTACLE,                        
-    SYSEVT_REST_TO_FACTORY,       
-    SYSEVT_OBJDETECTED,                 
-    SYSEVT_WIFICONNECTING,          
-    SYSEVT_TRACEDONE,                     
+    SYSEVT_POWERON,
+    SYSEVT_POWEROFF,
+    SYSEVT_STA2AP,
+    SYSEVT_AP2STA,
+    SYSEVT_SETWIF,
+    SYSEVT_WIFICON,
+    SYSEVT_WIFIDISCON,
+    SYSEVT_STARTCHARGING,
+    SYSEVT_OUTPILE,
+    SYSEVT_LOWPOWER,
+    SYSEVT_NETCMD,
+    SYSEVT_OBSTACLE,
+    SYSEVT_REST_TO_FACTORY,
+    SYSEVT_OBJDETECTED,
+    SYSEVT_WIFICONNECTING,
+    SYSEVT_TRACEDONE,
     SYSEVT_SND_MAX,
-    SYSEVT_MOTOR_BYCMD,           
-    SYSEVT_CANT_SAVE,                     
-    SYSEVT_BIST_START,              
+    SYSEVT_MOTOR_BYCMD,
+    SYSEVT_CANT_SAVE,
+    SYSEVT_BIST_START,
 }SYSEVT_T;
 
 namespace roller_eye
 {
-class SoundEffectsMgr{ 
+class SoundEffectsMgr{
     public:
     SoundEffectsMgr(shared_ptr<ros::NodeHandle> &node);
     ~SoundEffectsMgr();
@@ -49,8 +49,8 @@ class SoundEffectsMgr{
 private:
     void Loop();
     SYSEVT_T GetSoundID();
-    void Play(SYSEVT_T evt); 
-    void PlayAudioCallback(const std_msgs::Int32::ConstPtr& msg);    
+    void Play(SYSEVT_T evt);
+    void PlayAudioCallback(const std_msgs::Int32::ConstPtr& msg);
     void wifiStatusCallback(const statusConstPtr &s);
     void batteryStatusCallback(const statusConstPtr &s);
     void patrolStatus(const patrol_status& msg);
@@ -61,9 +61,9 @@ private:
 
     void UpdatePatrolState(int state);
 
-    std::vector<bool> mPlayingFlagVec;               
-    std::queue<SYSEVT_T> mSoundQue;          
-  
+    std::vector<bool> mPlayingFlagVec;
+    std::queue<SYSEVT_T> mSoundQue;
+
 
     std::thread mPlayThread;
     bool mRunning = false;
@@ -76,15 +76,16 @@ private:
     ros::Subscriber mPatrolStatsuSub;
     ros::Subscriber mBatteryStatus;
      ros::Subscriber mGoingHomeStatusSub;
-    ros:: ServiceClient mGetNavStatusClient;   
+    ros:: ServiceClient mGetNavStatusClient;
 
     ros::Publisher mSysEvtPub;
     ros::Publisher mPatrolStatusPub;
-    
+
+    int mMinBat;
     int mPrevPercentage;
     int mCurrentPercentage;
     int mChargingStatus;
     int mPrevChargingStatus;
-    int mPatrolState;                              
+    int mPatrolState;
 };
 } // namespace roller_eye

@@ -20,8 +20,13 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
    add_definitions(-DAPP_ARCH_X86)
 else()
    message(STATUS "not define APP_ARCH_X86")
+   set(ODOM_IS_VIO TRUE)
 endif()
 
+if(ODOM_IS_VIO)
+   add_definitions(-DUSE_VIO)
+   message(STATUS "define USE_VIO")
+endif(ODOM_IS_VIO)
 
 if( NOT ("${CMAKE_BUILD_TYPE}" STREQUAL "Release" ))
    add_definitions(-DROLLER_DEBUG)
@@ -40,6 +45,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
 )
 
+find_package(Boost REQUIRED COMPONENTS system thread)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -131,7 +137,11 @@ add_service_files(
    ai_get_detect_setting.srv
    ai_set_detect_setting.srv
    system_event.srv
+   programming_stop.srv
    nav_trace_done.srv
+   programming_exception_handle.srv
+   programming_meta_handle.srv
+   programming_msg_handle.srv
    wifi_get_mode.srv
    motion_detect_enable.srv
    adjust_ligth.srv
@@ -144,6 +154,7 @@ add_service_files(
    vio_stop.srv
    getOdom.srv
    imu_calib.srv
+   led_all_on.srv
    adjust_exposure_time.srv
    enable_vio.srv
    imu_patrol_calib.srv
@@ -153,6 +164,8 @@ add_service_files(
    nav_calibration_get_status.srv
    get_bist_result.srv
    start_bist.srv
+   nav_low_bat.srv
+   nav_exit.srv
  )
 
 ## Generate actions in the 'action' folder
@@ -228,6 +241,7 @@ endif(APP_ARCH_IS_X86)
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
   ${RK_MPP_INC}
   ${RK_RGA_INC}
   ${RK_ISP_INC}
@@ -235,7 +249,9 @@ include_directories(
   include/roller_eye
   include/roller_eye/udev
   /usr/local/include/opencv4
+  src
 )
+
 link_directories(
    ${catkin_LIB_DIRS}
    lib
@@ -252,7 +268,7 @@ add_library(plt_encoder
    src/encoder/encoder_aac.cpp
  )
  add_library(plt_decoder
- src/decoder/decoder_aac.cpp 
+ src/decoder/decoder_aac.cpp
 )
  add_library(plt_lib
    src/pltlib/msgqueue.c
@@ -278,6 +294,7 @@ target_link_libraries(plt_lib
    src/pltlibplus/upload_cache_mgr.cpp
    src/pltlibplus/rtmp_pub.cpp
    src/pltlibplus/srs_librtmp.cpp
+   src/pltlibplus/ibeacon_library.cpp
    src/pltlibplus/util_class.cpp
    src/pltlibplus/cv_img_stream.cpp
    src/pltlibplus/track_trace.cpp
@@ -285,6 +302,7 @@ target_link_libraries(plt_lib
    src/pltlibplus/device_interface.cpp
    src/pltlibplus/imu_filter.cpp
    src/pltlibplus/stateless_orientation.cpp
+   src/pltlibplus/url_en_decode.cpp
  )
 
  add_library(plt_sensor
@@ -308,7 +326,7 @@ target_link_libraries(plt_lib
    src/sensor/LightSensor.cpp
  )
 
-  add_library(plt_roslib 
+  add_library(plt_roslib
    src/roslib/status_publisher.cpp
    src/roslib/ros_tools.cpp
    src/roslib/algo_utils.cpp
@@ -345,7 +363,7 @@ faac
 x264
 jpeg
 avcodec
-avformat 
+avformat
 avutil
 asound
 )
@@ -357,7 +375,7 @@ x264
 jpeg
 plt_encoder
 avcodec
-avformat 
+avformat
 avutil
 pulse-simple
 asound
@@ -379,33 +397,36 @@ target_link_libraries(plt_sensor
 ## The recommended prefix ensures that target names across packages don't collide
 
 add_executable(media_core_node
-src/nodes/media_core_node.cpp
-src/nodes/video_stream_pub.cpp
-src/nodes/audio_stream_pub.cpp
-src/nodes/pic_stream_pub.cpp
-src/nodes/tf_eval_utils.cc
-src/nodes/obj_detect_pub.cpp
-src/nodes/alg_backing_up.cpp
-src/nodes/mono_image_pub.cpp
-src/nodes/motion_detect.cpp
-src/nodes/arecord.c
+src/nodes/media_core/media_core_node.cpp
+src/nodes/media_core/video_stream_pub.cpp
+src/nodes/media_core/audio_stream_pub.cpp
+src/nodes/media_core/pic_stream_pub.cpp
+src/nodes/media_core/tf_eval_utils.cc
+src/nodes/media_core/obj_detect_pub.cpp
+src/nodes/media_core/alg_backing_up.cpp
+src/nodes/media_core/mono_image_pub.cpp
+src/nodes/media_core/motion_detect.cpp
+src/nodes/speaker/arecord.c
+#${BACKWARD_ENABLE}
 )
+#add_backward(app_node)
+
 
 add_executable(recorder_agent_node
-src/nodes/recorder_agent_node.cpp
-src/nodes/recorder_mgr.cpp
-src/nodes/rec_db_helper.cpp
-src/nodes/recorder_mp4.cpp
-src/nodes/recorder_jpg.cpp
+src/nodes/recorder/recorder_agent_node.cpp
+src/nodes/recorder/recorder_mgr.cpp
+src/nodes/recorder/rec_db_helper.cpp
+src/nodes/recorder/recorder_mp4.cpp
+src/nodes/recorder/recorder_jpg.cpp
 )
 
 add_executable(rtmp_node
-src/nodes/rtmp_node.cpp
+src/nodes/rtmp/rtmp_node.cpp
 )
 
 add_executable(detect_record_node
-src/nodes/detect_record_node.cpp
-src/nodes/recorder_mp4.cpp
+src/nodes/recorder/detect_record_node.cpp
+src/nodes/recorder/recorder_mp4.cpp
 )
 
 add_executable(supervisor_node
@@ -416,13 +437,14 @@ src/nodes/nav_path_node.cpp
 )
 
 add_executable(speaker_node
-src/nodes/speaker_node.cpp
-src/nodes/sound_effects_mgr.cpp
+src/nodes/speaker/speaker_node.cpp
+src/nodes/speaker/aplay.c
+src/nodes/speaker/sound_effects_mgr.cpp
 )
 
 add_executable(bistNode
 test/bist/bistNode.cpp
-src/nodes/arecord.c
+src/nodes/speaker/arecord.c
 )
 
 add_executable(sched_node
@@ -443,10 +465,10 @@ src/nodes/wifi_node.cpp
 )
 
 add_executable(motor_node
-src/nodes/motor_node.cpp
+src/nodes/motor/motor_node.cpp
 )
 add_executable(motor_tune_node
-src/nodes/motor_tune_node.cpp
+src/nodes/motor/motor_tune_node.cpp
 )
 
 add_executable(sensors_node
@@ -472,7 +494,7 @@ add_dependencies(rtmp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED
 add_dependencies(detect_record_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(supervisor_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(nav_path_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(speaker_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})  
+add_dependencies(speaker_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})  ##add by ltl 2021-02-19
 add_dependencies(bistNode ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(sched_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(plt_roslib ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -505,7 +527,7 @@ target_link_libraries(media_core_node
    opencv_core
    opencv_calib3d
    opencv_imgproc
-   opencv_imgcodecs  
+   opencv_imgcodecs
    opencv_video
    asound
    zlog
@@ -575,7 +597,7 @@ target_link_libraries(util_node
 target_link_libraries(akaze
    opencv_core
    opencv_imgproc
-   opencv_imgcodecs  
+   opencv_imgcodecs
    opencv_features2d
 )
 
@@ -633,8 +655,8 @@ install(TARGETS
    nav_path_node
    sched_node
    util_node
-   speaker_node                    
-   supervisor_node             
+   speaker_node
+   supervisor_node
    detect_record_node
    bistNode
    akaze
@@ -676,18 +698,17 @@ install(TARGETS
 install(DIRECTORY
 launch
 DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)   
+)
 
 install(DIRECTORY
 param
 DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)   
+)
 
 install(DIRECTORY
 kernel
 DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/var/roller_eye
-)   
-
+)
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(PROGRAMS
    scripts/check_rec_disk.sh
@@ -695,7 +716,8 @@ install(PROGRAMS
    scripts/wifi_start_ap.sh
    scripts/wifi_start_sta.sh
    scripts/scan_wifi_init.sh
-   scripts/start_blue.sh
+   scripts/ibeacon_scan_v2
+   #scripts/start_blue.sh
    scripts/scout_reset.sh
    scripts/scout_reset2.sh
    scripts/manual_sync_zone.sh
@@ -721,16 +743,16 @@ install(FILES
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/usr/local/lib/
 )
 endif()
+# endif(APP_ARCH_IS_X86)
 
 install(FILES
-   #conf/var/roller_eye/config/ibeacon_info   
+   conf/var/roller_eye/config/ibeacon_info
    conf/var/roller_eye/config/motor_port
    conf/var/roller_eye/config/motor_tune
    conf/var/roller_eye/config/device_default_config
-   conf/var/roller_eye/config/monitor_default.json
-   conf/var/roller_eye/config/motion_default.json
+   conf/var/roller_eye/config/motion_default
    conf/var/roller_eye/config/video_default.yaml
-   conf/var/roller_eye/config/soundEffect
+   conf/var/roller_eye/config/soundEffect_default.json
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/var/roller_eye/config/
 )
 
@@ -746,11 +768,6 @@ install(FILES
 install(PROGRAMS
    conf/var/roller_eye/config/rc.local
    DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/etc/
-)
-
-install(PROGRAMS
-   thirdpart/update_tool
-   DESTINATION ${CMAKE_INSTALL_PREFIX}/rootfs/usr/sbin/
 )
 
 install(DIRECTORY

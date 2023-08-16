@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include<atomic>
@@ -15,6 +14,7 @@ typedef std::function<void(void)> ClientOut2;
 template<class T>
  class Publisher2{
 public:
+
     Publisher2(ros::NodeHandle &n,string name,int buff,const ClientIn2& in,const ClientOut2& out):
     mConnec(0),
     mIn(in),
@@ -41,21 +41,21 @@ public:
     }
 
     void subcriberConnect(const ros::SingleSubscriberPublisher& sub)
-    {  
+    {
         if(mIn){
-            mIn();   
+            mIn();
         }
     }
     void disconnectConnect(const ros::SingleSubscriberPublisher& sub)
     {
         if(mOut){
-            mOut();   
+            mOut();
         }
     }
     void unSubConnect()
     {
         if(mOut){
-            mOut();   
+            mOut();
         }
     }
     void publish(const T& msg){
